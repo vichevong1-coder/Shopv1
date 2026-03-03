@@ -1,35 +1,51 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAppDispatch, useAppSelector } from './redux/hooks';
+import { initAuth } from './redux/slices/authSlice';
+import Spinner from './components/common/Spinner';
+import Toast from './components/common/Toast';
+import ProtectedRoute from './components/common/ProtectedRoute';
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 
-function App() {
-  const [count, setCount] = useState(0)
+const App = () => {
+  const dispatch = useAppDispatch();
+  const { isInitialized } = useAppSelector((s) => s.auth);
+
+  useEffect(() => {
+    dispatch(initAuth());
+  }, [dispatch]);
+
+  if (!isInitialized) return <Spinner fullPage />;
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+      <Toast />
+      <Routes>
+        {/* Auth */}
+        <Route path="/auth/login"                element={<Login />} />
+        <Route path="/auth/register"             element={<Register />} />
+        <Route path="/auth/forgot-password"      element={<ForgotPassword />} />
+        <Route path="/auth/reset-password/:token" element={<ResetPassword />} />
 
-export default App
+        {/* Protected placeholder — expanded in later build steps */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
+                <h2>Home — coming soon</h2>
+              </div>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
+  );
+};
+
+export default App;
