@@ -4,6 +4,9 @@ import cookieParser from 'cookie-parser';
 import errorHandler from './middleware/error';
 import createRateLimiter from './middleware/rateLimiter';
 import authRoutes from './routes/auth';
+import productRoutes from './routes/product';
+import uploadRoutes from './routes/upload';
+import adminRoutes from './routes/admin';
 
 const app = express();
 
@@ -35,6 +38,9 @@ app.get('/api/health', (req: Request, res: Response) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/admin', adminRoutes);
 app.use(errorHandler);
 
 export default app;
