@@ -9,6 +9,7 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
+import AdminProducts from './pages/admin/Products';
 
 const App = () => {
   const dispatch = useAppDispatch();
@@ -29,6 +30,26 @@ const App = () => {
         <Route path="/auth/register"             element={<Register />} />
         <Route path="/auth/forgot-password"      element={<ForgotPassword />} />
         <Route path="/auth/reset-password/:token" element={<ResetPassword />} />
+
+        {/* Admin */}
+        <Route
+          path="/admin/products"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminProducts />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute adminOnly>
+              <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
+                <h2>Admin Dashboard — coming soon</h2>
+              </div>
+            </ProtectedRoute>
+          }
+        />
 
         {/* Protected placeholder — expanded in later build steps */}
         <Route

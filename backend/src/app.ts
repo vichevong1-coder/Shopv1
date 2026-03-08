@@ -19,7 +19,7 @@ app.use((req: Request, res: Response, next) => {
   const isDev = process.env.NODE_ENV === 'development';
   const cspPolicy = isDev
     ? "default-src 'self'; connect-src 'self' http://localhost:*; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; frame-src 'self';"
-    : "default-src 'self'; connect-src 'self' https://api.bakong.com https://res.cloudinary.com; script-src 'self'; style-src 'self' https:; img-src 'self' data: https:; font-src 'self';";
+    : "default-src 'self'; connect-src 'self' https://api.bakong.com https://*.supabase.co; script-src 'self'; style-src 'self' https:; img-src 'self' data: https:; font-src 'self';";
   res.setHeader('Content-Security-Policy', cspPolicy);
   next();
 });
