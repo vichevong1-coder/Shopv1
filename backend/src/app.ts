@@ -5,6 +5,7 @@ import errorHandler from './middleware/error';
 import createRateLimiter from './middleware/rateLimiter';
 import authRoutes from './routes/auth';
 import productRoutes from './routes/product';
+import cartRoutes from './routes/cart';
 import uploadRoutes from './routes/upload';
 import adminRoutes from './routes/admin';
 
@@ -39,6 +40,7 @@ app.get('/api/health', (req: Request, res: Response) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/cart', cartRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/admin', adminRoutes);
 app.use(errorHandler);

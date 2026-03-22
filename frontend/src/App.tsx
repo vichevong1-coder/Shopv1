@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from './redux/hooks';
 import { initAuth } from './redux/slices/authSlice';
+import { fetchCartThunk, setCartItems, loadGuestCart } from './redux/slices/cartSlice';
 import Spinner from './components/common/Spinner';
 import Toast from './components/common/Toast';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -18,6 +19,7 @@ import AdminProducts from './pages/admin/Products';
 import Home from './pages/Home';
 import Shop from './pages/Shop';
 import ProductDetail from './pages/ProductDetail';
+import Cart from './pages/Cart';
 
 const PublicLayout = ({ children }: { children: React.ReactNode }) => (
   <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -32,7 +34,13 @@ const App = () => {
   const { isInitialized } = useAppSelector((s) => s.auth);
 
   useEffect(() => {
-    dispatch(initAuth());
+    dispatch(initAuth()).then((result) => {
+      if (initAuth.fulfilled.match(result)) {
+        dispatch(fetchCartThunk());
+      } else {
+        dispatch(setCartItems(loadGuestCart()));
+      }
+    });
   }, [dispatch]);
 
   if (!isInitialized) return <Spinner fullPage />;
@@ -77,6 +85,7 @@ const App = () => {
         <Route path="/shop/:gender" element={<PublicLayout><Shop /></PublicLayout>} />
         <Route path="/shop/category/:cat" element={<PublicLayout><Shop /></PublicLayout>} />
         <Route path="/product/:id" element={<PublicLayout><ProductDetail /></PublicLayout>} />
+        <Route path="/cart" element={<PublicLayout><Cart /></PublicLayout>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

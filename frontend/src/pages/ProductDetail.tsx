@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
 import { fetchProduct, clearCurrentProduct } from '../redux/slices/productSlice';
+import { addItemThunk, addItemLocal } from '../redux/slices/cartSlice';
 import { formatPrice } from '../utils/money';
+import { useUI } from '../context/UIContext';
 import ProductImageGallery from '../components/product/ProductImageGallery';
 import SizeSelector from '../components/product/SizeSelector';
 import ColorSwatch from '../components/product/ColorSwatch';
@@ -15,9 +17,14 @@ const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
   const { currentProduct: product, isLoading, error } = useAppSelector((s) => s.products);
+  const { user } = useAppSelector((s) => s.auth);
+  const cartLoading = useAppSelector((s) => s.cart.isLoading);
+  const { openCart, showToast } = useUI();
 
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
+  const [sizeError, setSizeError] = useState(false);
+  const [colorError, setColorError] = useState(false);
 
   useEffect(() => {
     if (id) dispatch(fetchProduct(id));
@@ -28,7 +35,51 @@ const ProductDetail = () => {
   useEffect(() => {
     setSelectedSize('');
     setSelectedColor('');
+    setSizeError(false);
+    setColorError(false);
   }, [product?._id]);
+
+  const handleAddToCart = async () => {
+    if (!product) return;
+
+    const hasVariants = product.variants.length > 0;
+    const needsSize = hasVariants && !selectedSize;
+    const needsColor = hasVariants && !selectedColor;
+
+    if (needsSize || needsColor) {
+      setSizeError(needsSize);
+      setColorError(needsColor);
+      showToast('Please select a size and colour', 'error');
+      return;
+    }
+
+    if (user) {
+      const result = await dispatch(
+        addItemThunk({ productId: product._id, size: selectedSize, color: selectedColor, quantity: 1 })
+      );
+      if (addItemThunk.fulfilled.match(result)) {
+        openCart();
+        showToast('Added to cart', 'success');
+      } else {
+        showToast((result.payload as string) ?? 'Failed to add to cart', 'error');
+      }
+    } else {
+      dispatch(
+        addItemLocal({
+          _id: crypto.randomUUID(),
+          productId: product._id,
+          name: product.name,
+          image: product.images[0]?.url ?? '',
+          size: selectedSize,
+          color: selectedColor,
+          quantity: 1,
+          priceInCents: product.priceInCents,
+        })
+      );
+      openCart();
+      showToast('Added to cart', 'success');
+    }
+  };
 
   if (isLoading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}><Spinner /></div>;
 
@@ -98,21 +149,35 @@ const ProductDetail = () => {
 
           {/* Color */}
           {product.variants.length > 0 && (
-            <ColorSwatch
-              variants={product.variants}
-              selectedColor={selectedColor}
-              onSelect={setSelectedColor}
-            />
+            <div>
+              <ColorSwatch
+                variants={product.variants}
+                selectedColor={selectedColor}
+                onSelect={(c) => { setSelectedColor(c); setColorError(false); }}
+              />
+              {colorError && (
+                <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                  Please select a colour
+                </p>
+              )}
+            </div>
           )}
 
           {/* Size */}
           {product.variants.length > 0 && (
-            <SizeSelector
-              variants={product.variants}
-              selectedSize={selectedSize}
-              selectedColor={selectedColor}
-              onSelect={setSelectedSize}
-            />
+            <div>
+              <SizeSelector
+                variants={product.variants}
+                selectedSize={selectedSize}
+                selectedColor={selectedColor}
+                onSelect={(s) => { setSelectedSize(s); setSizeError(false); }}
+              />
+              {sizeError && (
+                <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                  Please select a size
+                </p>
+              )}
+            </div>
           )}
 
           {/* Stock info */}
@@ -127,13 +192,13 @@ const ProductDetail = () => {
             </p>
           )}
 
-          {/* Add to cart — placeholder for Sprint 3 */}
           <Button
             fullWidth
-            disabled={availableStock === 0}
+            disabled={availableStock === 0 || cartLoading}
+            onClick={handleAddToCart}
             style={{ marginTop: '0.5rem' }}
           >
-            {availableStock === 0 ? 'Out of Stock' : 'Add to Cart'}
+            {cartLoading ? 'Adding…' : availableStock === 0 ? 'Out of Stock' : 'Add to Cart'}
           </Button>
         </div>
       </div>

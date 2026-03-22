@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 import { loginThunk, clearError } from '../../redux/slices/authSlice';
+import { mergeCartThunk } from '../../redux/slices/cartSlice';
 import { useUI } from '../../context/UIContext';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -29,6 +30,7 @@ const Login = () => {
     e.preventDefault();
     const result = await dispatch(loginThunk({ email, password }));
     if (loginThunk.fulfilled.match(result)) {
+      dispatch(mergeCartThunk());
       showToast('Welcome back!', 'success');
     }
   };

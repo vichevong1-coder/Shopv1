@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 import { registerThunk, clearError } from '../../redux/slices/authSlice';
+import { mergeCartThunk } from '../../redux/slices/cartSlice';
 import { useUI } from '../../context/UIContext';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -33,6 +34,7 @@ const Register = () => {
     setPasswordError('');
     const result = await dispatch(registerThunk({ name, email, password }));
     if (registerThunk.fulfilled.match(result)) {
+      dispatch(mergeCartThunk());
       showToast('Account created!', 'success');
     }
   };
