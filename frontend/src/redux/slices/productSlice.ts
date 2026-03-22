@@ -13,6 +13,34 @@ const initialState: ProductState = {
   error: null,
 };
 
+export const fetchProducts = createAsyncThunk(
+  'products/fetchPublic',
+  async (
+    params: ProductFilters & { page?: number; limit?: number },
+    { rejectWithValue }
+  ) => {
+    try {
+      return await productApi.listProducts(params);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      return rejectWithValue(msg ?? 'Failed to fetch products');
+    }
+  }
+);
+
+export const fetchFeaturedProducts = createAsyncThunk(
+  'products/fetchFeatured',
+  async (_, { rejectWithValue }) => {
+    try {
+      const { products } = await productApi.getFeaturedProducts();
+      return products;
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      return rejectWithValue(msg ?? 'Failed to fetch featured products');
+    }
+  }
+);
+
 export const fetchAdminProducts = createAsyncThunk(
   'products/fetchAdmin',
   async (
@@ -119,6 +147,23 @@ const productSlice = createSlice({
       state.isLoading = false;
       state.error = action.payload as string;
     };
+
+    builder
+      .addCase(fetchProducts.pending, pending)
+      .addCase(fetchProducts.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.items = action.payload.products;
+        state.pagination = action.payload.pagination;
+      })
+      .addCase(fetchProducts.rejected, rejected);
+
+    builder
+      .addCase(fetchFeaturedProducts.pending, pending)
+      .addCase(fetchFeaturedProducts.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.featuredItems = action.payload;
+      })
+      .addCase(fetchFeaturedProducts.rejected, rejected);
 
     builder
       .addCase(fetchAdminProducts.pending, pending)

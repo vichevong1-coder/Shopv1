@@ -38,9 +38,10 @@ export const listProducts = async (req: Request, res: Response, next: NextFuncti
     }
 
     if (size || color) {
-      const variantFilter: Record<string, string> = {};
-      if (size) variantFilter['variants.size'] = size;
-      if (color) variantFilter['variants.color'] = color;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const variantFilter: Record<string, any> = {};
+      if (size) variantFilter['variants.size'] = { $regex: new RegExp(`^${size}$`, 'i') };
+      if (color) variantFilter['variants.color'] = { $regex: new RegExp(`^${color}$`, 'i') };
       Object.assign(filter, variantFilter);
     }
 

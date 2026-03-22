@@ -9,13 +9,18 @@
     "start": "node dist/server.js",
     "test": "jest --runInBand --detectOpenHandles",
     "seed:admin": "ts-node src/seeders/seedAdmin.ts",
-    "seed:products": "ts-node src/seeders/seedProducts.ts"
+    "seed:products": "ts-node src/seeders/seedProducts.ts",
+    "seed:products2": "ts-node src/seeders/seedProducts2.ts",
+    "drop:products": "ts-node src/seeders/dropProducts.ts",
+    "seed:products3": "ts-node src/seeders/seedProducts3.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@google/genai": "^1.45.0",
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.98.0",
     "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",

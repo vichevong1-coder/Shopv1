@@ -5,11 +5,27 @@ import { initAuth } from './redux/slices/authSlice';
 import Spinner from './components/common/Spinner';
 import Toast from './components/common/Toast';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import Navbar from './components/layout/Navbar';
+import Footer from './components/layout/Footer';
+import CartDrawer from './components/common/CartDrawer';
+import SearchDialog from './components/common/SearchDialog';
+import ScrollToTopButton from './components/common/ScrollToTopButton';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import AdminProducts from './pages/admin/Products';
+import Home from './pages/Home';
+import Shop from './pages/Shop';
+import ProductDetail from './pages/ProductDetail';
+
+const PublicLayout = ({ children }: { children: React.ReactNode }) => (
+  <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+<Navbar />
+    <main style={{ flex: 1 }}>{children}</main>
+    <Footer />
+  </div>
+);
 
 const App = () => {
   const dispatch = useAppDispatch();
@@ -24,14 +40,18 @@ const App = () => {
   return (
     <>
       <Toast />
+      <CartDrawer />
+      <SearchDialog />
+<ScrollToTopButton />
+
       <Routes>
-        {/* Auth */}
-        <Route path="/auth/login"                element={<Login />} />
-        <Route path="/auth/register"             element={<Register />} />
-        <Route path="/auth/forgot-password"      element={<ForgotPassword />} />
+        {/* Auth — no layout */}
+        <Route path="/auth/login" element={<Login />} />
+        <Route path="/auth/register" element={<Register />} />
+        <Route path="/auth/forgot-password" element={<ForgotPassword />} />
         <Route path="/auth/reset-password/:token" element={<ResetPassword />} />
 
-        {/* Admin */}
+        {/* Admin — self-contained layout */}
         <Route
           path="/admin/products"
           element={
@@ -44,24 +64,19 @@ const App = () => {
           path="/admin"
           element={
             <ProtectedRoute adminOnly>
-              <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
+              <div style={{ padding: '2rem', fontFamily: '"DM Sans", sans-serif' }}>
                 <h2>Admin Dashboard — coming soon</h2>
               </div>
             </ProtectedRoute>
           }
         />
 
-        {/* Protected placeholder — expanded in later build steps */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-                <h2>Home — coming soon</h2>
-              </div>
-            </ProtectedRoute>
-          }
-        />
+        {/* Public catalog */}
+        <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
+        <Route path="/shop" element={<PublicLayout><Shop /></PublicLayout>} />
+        <Route path="/shop/:gender" element={<PublicLayout><Shop /></PublicLayout>} />
+        <Route path="/shop/category/:cat" element={<PublicLayout><Shop /></PublicLayout>} />
+        <Route path="/product/:id" element={<PublicLayout><ProductDetail /></PublicLayout>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
