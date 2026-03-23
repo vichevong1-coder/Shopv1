@@ -68,7 +68,7 @@ export const updateItem = async (req: Request, res: Response, next: NextFunction
     const cart = await Cart.findOneAndUpdate(
       { user: req.user!.userId, 'items._id': itemId },
       { $set: { 'items.$.quantity': quantity } },
-      { new: true }
+      { returnDocument: 'after' }
     ).populate('items.product', 'name images isDeleted');
 
     if (!cart) return res.status(404).json({ message: 'Cart item not found' });
@@ -87,7 +87,7 @@ export const removeItem = async (req: Request, res: Response, next: NextFunction
     const cart = await Cart.findOneAndUpdate(
       { user: req.user!.userId },
       { $pull: { items: { _id: itemId } } },
-      { new: true }
+      { returnDocument: 'after' }
     ).populate('items.product', 'name images isDeleted');
 
     if (!cart) return res.status(404).json({ message: 'Cart not found' });

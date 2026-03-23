@@ -114,7 +114,7 @@ describe('POST /api/upload/signature', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send({});
 
-    expect(mockFrom).toHaveBeenCalledWith('products');
+    expect(mockFrom).toHaveBeenCalledWith('Products');
     const bucket = mockFrom.mock.results[0].value as typeof mockFrom.mock.results[0]['value'];
     expect(bucket.createSignedUploadUrl).toHaveBeenCalledWith(
       expect.stringContaining('shopv1/products/')

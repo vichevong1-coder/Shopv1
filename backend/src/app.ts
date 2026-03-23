@@ -6,8 +6,11 @@ import createRateLimiter from './middleware/rateLimiter';
 import authRoutes from './routes/auth';
 import productRoutes from './routes/product';
 import cartRoutes from './routes/cart';
+import orderRoutes from './routes/order';
 import uploadRoutes from './routes/upload';
 import adminRoutes from './routes/admin';
+import paymentRoutes from './routes/payment';
+import { stripeWebhook } from './controllers/payment';
 
 const app = express();
 
@@ -25,6 +28,13 @@ app.use((req: Request, res: Response, next) => {
   next();
 });
 
+// Stripe webhook must receive raw body — register BEFORE express.json()
+app.post(
+  '/api/payment/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  stripeWebhook
+);
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
@@ -41,6 +51,8 @@ app.get('/api/health', (req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/payment', paymentRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/admin', adminRoutes);
 app.use(errorHandler);
