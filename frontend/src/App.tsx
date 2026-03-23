@@ -16,6 +16,7 @@ import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import AdminProducts from './pages/admin/Products';
+import EditProduct from './pages/admin/EditProduct';
 import Home from './pages/Home';
 import Shop from './pages/Shop';
 import ProductDetail from './pages/ProductDetail';
@@ -60,6 +61,22 @@ const App = () => {
         <Route path="/auth/reset-password/:token" element={<ResetPassword />} />
 
         {/* Admin — self-contained layout */}
+        <Route
+          path="/admin/products/new"
+          element={
+            <ProtectedRoute adminOnly>
+              <EditProduct />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/products/:id/edit"
+          element={
+            <ProtectedRoute adminOnly>
+              <EditProduct />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/admin/products"
           element={

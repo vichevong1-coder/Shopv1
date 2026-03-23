@@ -44,7 +44,7 @@ export const fetchFeaturedProducts = createAsyncThunk(
 export const fetchAdminProducts = createAsyncThunk(
   'products/fetchAdmin',
   async (
-    params: { page?: number; limit?: number; search?: string; includeDeleted?: boolean },
+    params: { page?: number; limit?: number; search?: string; includeDeleted?: boolean; category?: string; gender?: string; isActive?: boolean },
     { rejectWithValue }
   ) => {
     try {

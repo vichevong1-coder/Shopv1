@@ -6,6 +6,9 @@ interface AdminListParams {
   limit?: number;
   search?: string;
   includeDeleted?: boolean;
+  category?: string;
+  gender?: string;
+  isActive?: boolean;
 }
 
 interface AdminListResponse {
