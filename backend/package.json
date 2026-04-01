@@ -9,10 +9,11 @@
     "start": "node dist/server.js",
     "test": "jest --runInBand --detectOpenHandles",
     "seed:admin": "ts-node src/seeders/seedAdmin.ts",
+    "drop:products": "ts-node src/seeders/dropProducts.ts",
     "seed:products": "ts-node src/seeders/seedProducts.ts",
     "seed:products2": "ts-node src/seeders/seedProducts2.ts",
-    "drop:products": "ts-node src/seeders/dropProducts.ts",
-    "seed:products3": "ts-node src/seeders/seedProducts3.ts"
+    "seed:products3": "ts-node src/seeders/seedProducts3.ts",
+    "seed:products4": "ts-node src/seeders/seedProducts4.ts"
   },
   "keywords": [],
   "author": "",
@@ -32,6 +33,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.2.2",
     "nodemailer": "^8.0.1",
+    "sanitize-html": "^2.17.2",
     "stripe": "^20.4.1"
   },
   "devDependencies": {
@@ -43,6 +45,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.3.1",
     "@types/nodemailer": "^7.0.11",
+    "@types/sanitize-html": "^2.16.1",
     "@types/supertest": "^7.2.0",
     "jest": "^30.2.0",
     "mongodb-memory-server": "^11.0.1",
