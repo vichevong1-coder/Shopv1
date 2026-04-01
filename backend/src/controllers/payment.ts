@@ -151,6 +151,27 @@ export const stripeWebhook = async (
       const orderId = paymentIntent.metadata?.orderId;
       if (orderId) {
         await finalizeOrder(orderId);
+
+        // Save card brand + last4 for receipt display — non-critical, best-effort
+        const chargeId = typeof paymentIntent.latest_charge === 'string'
+          ? paymentIntent.latest_charge
+          : (paymentIntent.latest_charge as { id?: string } | null)?.id;
+        if (chargeId) {
+          try {
+            const charge = await stripe.charges.retrieve(chargeId);
+            const card = charge.payment_method_details?.card;
+            if (card?.brand && card?.last4) {
+              await Order.findByIdAndUpdate(orderId, {
+                $set: {
+                  'paymentResult.cardBrand': card.brand,
+                  'paymentResult.cardLast4': card.last4,
+                },
+              });
+            }
+          } catch {
+            // Non-critical — don't fail the webhook if charge retrieval fails
+          }
+        }
       }
     }
 
@@ -183,16 +204,17 @@ export const createBakongQR = async (
     }
 
     const currency =
-      process.env.BAKONG_CURRENCY === 'USD' ? khqrData.currency.usd : khqrData.currency.khr;
+      process.env.BAKONG_CURRENCY === 'KHR' ? khqrData.currency.khr : khqrData.currency.usd;
 
     const info = new IndividualInfo(
       process.env.BAKONG_MERCHANT_ID!,
-      process.env.BAKONG_MERCHANT_NAME!,
+      process.env.BAKONG_ACQUIRER_ID!,
       'Phnom Penh',
       {
         currency,
         amount: order.totalAmountInCents / 100,
         billNumber: order.orderNumber,
+        expirationTimestamp: (Date.now() + 15 * 60 * 1000) as unknown as string,
       }
     );
 
@@ -235,7 +257,7 @@ export const getBakongStatus = async (
       'https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5',
       {
         params: { md5: bakongRef },
-        headers: { Authorization: `Bearer ${process.env.BAKONG_API_KEY}` },
+        headers: { Authorization: `Bearer ${process.env.BAKONG_API_TOKEN}` },
       }
     );
 

@@ -10,6 +10,7 @@ import orderRoutes from './routes/order';
 import uploadRoutes from './routes/upload';
 import adminRoutes from './routes/admin';
 import paymentRoutes from './routes/payment';
+import reviewRoutes from './routes/review';
 import { stripeWebhook } from './controllers/payment';
 
 const app = express();
@@ -53,6 +54,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/products/:id/reviews', reviewRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/admin', adminRoutes);
 app.use(errorHandler);
