@@ -26,3 +26,24 @@ export const getOrderById = async (id: string): Promise<Order> => {
   const { data } = await axiosInstance.get<{ order: Order }>(`/orders/${id}`);
   return data.order;
 };
+
+export interface GetAllOrdersParams {
+  page?: number;
+  limit?: number;
+  status?: string;
+}
+
+export interface GetAllOrdersResult {
+  orders: Order[];
+  pagination: { page: number; limit: number; total: number; pages: number };
+}
+
+export const getAllOrders = async (params: GetAllOrdersParams = {}): Promise<GetAllOrdersResult> => {
+  const { data } = await axiosInstance.get<GetAllOrdersResult>('/orders', { params });
+  return data;
+};
+
+export const updateOrderStatus = async (orderId: string, status: string): Promise<Order> => {
+  const { data } = await axiosInstance.put<{ order: Order }>(`/orders/${orderId}/status`, { status });
+  return data.order;
+};

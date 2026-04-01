@@ -1,11 +1,13 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { Order, OrderState } from '../../types/order';
 import * as orderApi from '../../api/order';
-import type { CreateOrderPayload } from '../../api/order';
+import type { CreateOrderPayload, GetAllOrdersParams } from '../../api/order';
 
 const initialState: OrderState = {
   orders: [],
   currentOrder: null,
+  adminOrders: [],
+  adminPagination: { page: 1, limit: 20, total: 0, pages: 1 },
   isLoading: false,
   error: null,
 };
@@ -44,6 +46,30 @@ export const fetchOrderByIdThunk = createAsyncThunk(
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
       return rejectWithValue(msg ?? 'Failed to fetch order');
+    }
+  }
+);
+
+export const fetchAllOrdersThunk = createAsyncThunk(
+  'orders/fetchAll',
+  async (params: GetAllOrdersParams, { rejectWithValue }) => {
+    try {
+      return await orderApi.getAllOrders(params);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      return rejectWithValue(msg ?? 'Failed to fetch orders');
+    }
+  }
+);
+
+export const updateOrderStatusThunk = createAsyncThunk(
+  'orders/updateStatus',
+  async ({ orderId, status }: { orderId: string; status: string }, { rejectWithValue }) => {
+    try {
+      return await orderApi.updateOrderStatus(orderId, status);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      return rejectWithValue(msg ?? 'Failed to update status');
     }
   }
 );
@@ -95,6 +121,28 @@ const orderSlice = createSlice({
         state.currentOrder = action.payload;
       })
       .addCase(fetchOrderByIdThunk.rejected, rejected);
+
+    builder
+      .addCase(fetchAllOrdersThunk.pending, pending)
+      .addCase(fetchAllOrdersThunk.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.adminOrders = action.payload.orders;
+        state.adminPagination = action.payload.pagination;
+      })
+      .addCase(fetchAllOrdersThunk.rejected, rejected);
+
+    builder
+      .addCase(updateOrderStatusThunk.pending, (state) => { state.error = null; })
+      .addCase(updateOrderStatusThunk.fulfilled, (state, action) => {
+        const updated = action.payload;
+        const idx = state.adminOrders.findIndex((o) => o._id === updated._id);
+        if (idx !== -1) state.adminOrders[idx] = updated;
+        // Also sync currentOrder so the detail page reflects the change immediately
+        if (state.currentOrder?._id === updated._id) state.currentOrder = updated;
+      })
+      .addCase(updateOrderStatusThunk.rejected, (state, action) => {
+        state.error = action.payload as string;
+      });
   },
 });
 

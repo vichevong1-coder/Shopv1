@@ -23,6 +23,8 @@ export interface PaymentResult {
   stripeChargeId?: string;
   status?: string;
   paidAt?: string;
+  cardBrand?: string;
+  cardLast4?: string;
 }
 
 export type OrderStatus =
@@ -35,9 +37,15 @@ export type OrderStatus =
 
 export type PaymentMethod = 'stripe' | 'bakong';
 
+export interface OrderUser {
+  _id: string;
+  name: string;
+  email: string;
+}
+
 export interface Order {
   _id: string;
-  user: string;
+  user: string | OrderUser;
   orderNumber: string;
   items: OrderItem[];
   shippingAddress: ShippingAddress;
@@ -56,9 +64,18 @@ export interface Order {
   updatedAt: string;
 }
 
+export interface AdminPagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
+
 export interface OrderState {
   orders: Order[];
   currentOrder: Order | null;
+  adminOrders: Order[];
+  adminPagination: AdminPagination;
   isLoading: boolean;
   error: string | null;
 }

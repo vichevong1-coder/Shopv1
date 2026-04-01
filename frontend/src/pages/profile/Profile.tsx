@@ -18,7 +18,7 @@ const Profile = () => {
     .slice(0, 2);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8f5f1' }}>
+    <div style={{ background: '#f8f5f1' }}>
       {/* Header */}
       <div style={{ background: '#fff', borderBottom: '1px solid #e8e2d9', padding: '1.25rem 2rem' }}>
         <div style={{ maxWidth: '860px', margin: '0 auto' }}>
