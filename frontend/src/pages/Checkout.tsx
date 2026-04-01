@@ -4,26 +4,24 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
 import { createOrderThunk } from '../redux/slices/orderSlice';
-import { fetchCartThunk } from '../redux/slices/cartSlice';
+import { clearCartLocal } from '../redux/slices/cartSlice';
 import { createStripePaymentIntent } from '../api/payment';
 import { useUI } from '../context/UIContext';
 import { formatPrice } from '../utils/money';
 import type { ShippingAddress } from '../types/order';
+import type { PaymentMethod } from '../types/order';
 import CheckoutSteps from '../components/checkout/CheckoutSteps';
 import ShippingForm from '../components/checkout/ShippingForm';
 import OrderReview from '../components/checkout/OrderReview';
 import PaymentSelector from '../components/checkout/PaymentSelector';
 import StripePayment from '../components/checkout/StripePayment';
+import BakongQR from '../components/checkout/BakongQR';
 import Spinner from '../components/common/Spinner';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? '');
 
 const EMPTY_ADDRESS: ShippingAddress = {
-  street: '',
-  city: '',
-  state: '',
-  postalCode: '',
-  country: '',
+  street: '', city: '', state: '', postalCode: '', country: '',
 };
 
 const Checkout = () => {
@@ -36,7 +34,7 @@ const Checkout = () => {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [address, setAddress] = useState<ShippingAddress>(EMPTY_ADDRESS);
-  const [paymentMethod] = useState<'stripe'>('stripe');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('stripe');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -69,7 +67,7 @@ const Checkout = () => {
             quantity: i.quantity,
           })),
           shippingAddress: address,
-          paymentMethod: 'stripe',
+          paymentMethod,
         })
       );
 
@@ -79,9 +77,12 @@ const Checkout = () => {
 
       const order = result.payload as { _id: string };
 
-      // 2. Create payment intent
-      const { clientSecret: cs } = await createStripePaymentIntent(order._id);
-      setClientSecret(cs);
+      // 2. For Stripe: also create payment intent now
+      if (paymentMethod === 'stripe') {
+        const { clientSecret: cs } = await createStripePaymentIntent(order._id);
+        setClientSecret(cs);
+      }
+
       setStep(3);
     } catch (err) {
       showToast((err as Error).message ?? 'Something went wrong', 'error');
@@ -91,7 +92,7 @@ const Checkout = () => {
   };
 
   const handlePaymentSuccess = () => {
-    dispatch(fetchCartThunk()); // refresh cart (webhook will have cleared it server-side)
+    dispatch(clearCartLocal());
     const orderId = currentOrder?._id;
     navigate(`/order-confirmation/${orderId}`);
   };
@@ -115,14 +116,10 @@ const Checkout = () => {
         <div style={{ background: '#fff', borderRadius: '0.75rem', padding: '2rem', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           {/* Step 1 — Shipping */}
           {step === 1 && (
-            <ShippingForm
-              value={address}
-              onChange={setAddress}
-              onNext={() => setStep(2)}
-            />
+            <ShippingForm value={address} onChange={setAddress} onNext={() => setStep(2)} />
           )}
 
-          {/* Step 2 — Review */}
+          {/* Step 2 — Review + payment method selection */}
           {step === 2 && (
             preparing ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
@@ -134,32 +131,47 @@ const Checkout = () => {
                 shippingAddress={address}
                 onBack={() => setStep(1)}
                 onNext={handleGoToPayment}
+                renderAboveActions={
+                  <PaymentSelector selected={paymentMethod} onChange={setPaymentMethod} />
+                }
               />
             )
           )}
 
           {/* Step 3 — Payment */}
-          {step === 3 && clientSecret && (
+          {step === 3 && (
             <>
-              <PaymentSelector selected={paymentMethod} onChange={() => {}} />
-              <Elements stripe={stripePromise} options={{ clientSecret }}>
-                <StripePayment
-                  clientSecret={clientSecret}
+              {paymentMethod === 'stripe' && clientSecret && (
+                <Elements stripe={stripePromise} options={{ clientSecret }}>
+                  <StripePayment
+                    clientSecret={clientSecret}
+                    onSuccess={handlePaymentSuccess}
+                    onError={handlePaymentError}
+                    onBack={() => setStep(2)}
+                    totalLabel={formatPrice(total)}
+                    submitting={submitting}
+                    setSubmitting={setSubmitting}
+                  />
+                </Elements>
+              )}
+
+              {paymentMethod === 'bakong' && currentOrder && (
+                <BakongQR
+                  orderId={currentOrder._id}
+                  totalInCents={total}
                   onSuccess={handlePaymentSuccess}
                   onError={handlePaymentError}
                   onBack={() => setStep(2)}
-                  totalLabel={formatPrice(total)}
-                  submitting={submitting}
-                  setSubmitting={setSubmitting}
                 />
-              </Elements>
-            </>
-          )}
+              )}
 
-          {step === 3 && !clientSecret && (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
-              <Spinner />
-            </div>
+              {/* Loading states */}
+              {paymentMethod === 'stripe' && !clientSecret && (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
+                  <Spinner />
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

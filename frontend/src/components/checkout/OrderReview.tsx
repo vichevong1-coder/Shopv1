@@ -8,9 +8,10 @@ interface Props {
   shippingAddress: ShippingAddress;
   onBack: () => void;
   onNext: () => void;
+  renderAboveActions?: React.ReactNode;
 }
 
-const OrderReview = ({ items, shippingAddress, onBack, onNext }: Props) => {
+const OrderReview = ({ items, shippingAddress, onBack, onNext, renderAboveActions }: Props) => {
   const subtotal = items.reduce((s, i) => s + i.priceInCents * i.quantity, 0);
   const tax = Math.round(subtotal * 0.1);
   const shipping = 0;
@@ -77,6 +78,8 @@ const OrderReview = ({ items, shippingAddress, onBack, onNext }: Props) => {
           <span>{formatPrice(total)}</span>
         </div>
       </div>
+
+      {renderAboveActions}
 
       <div style={{ display: 'flex', gap: '0.75rem' }}>
         <Button variant="secondary" onClick={onBack} style={{ flex: 1 }}>

@@ -26,6 +26,8 @@ export interface IPaymentResult {
   stripeChargeId?: string;
   status?: string;
   paidAt?: Date;
+  cardBrand?: string;
+  cardLast4?: string;
 }
 
 export interface IOrder extends Document {
@@ -79,6 +81,8 @@ const paymentResultSchema = new Schema<IPaymentResult>(
     stripeChargeId: { type: String },
     status: { type: String },
     paidAt: { type: Date },
+    cardBrand: { type: String },
+    cardLast4: { type: String },
   },
   { _id: false }
 );
