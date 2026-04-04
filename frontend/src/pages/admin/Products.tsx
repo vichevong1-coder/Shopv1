@@ -18,8 +18,8 @@ type SortOption =
   | 'name_desc'
   | 'price_asc'
   | 'price_desc'
-  | 'stock_asc'
-  | 'stock_desc';
+  | 'date_desc'
+  | 'date_asc';
 
 const CATEGORIES = ['', 'hat', 'shirt', 'pant', 'shoe', 'accessory'] as const;
 const GENDERS = ['', 'men', 'women', 'kids', 'unisex'] as const;
@@ -52,7 +52,6 @@ const AdminProducts = () => {
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [sort, setSort] = useState<SortOption>('name_asc');
 
-  const includeDeleted = status === 'deleted' || status === 'all';
   const isActive = status === 'active' ? true : status === 'inactive' ? false : undefined;
 
   const load = useCallback(() => {
@@ -105,10 +104,10 @@ const AdminProducts = () => {
           return a.priceInCents - b.priceInCents;
         case 'price_desc':
           return b.priceInCents - a.priceInCents;
-        case 'stock_asc':
-          return totalStock(a) - totalStock(b);
-        case 'stock_desc':
-          return totalStock(b) - totalStock(a);
+        case 'date_desc':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'date_asc':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         default:
           return 0;
       }
@@ -199,10 +198,10 @@ const AdminProducts = () => {
           >
             <option value="name_asc">Name A→Z</option>
             <option value="name_desc">Name Z→A</option>
-            <option value="price_asc">Price ↑</option>
-            <option value="price_desc">Price ↓</option>
-            <option value="stock_asc">Stock ↑</option>
-            <option value="stock_desc">Stock ↓</option>
+            <option value="price_asc">Price-low</option>
+            <option value="price_desc">Price-high</option>
+            <option value="date_desc">Newest</option>
+            <option value="date_asc">Oldest</option>
           </select>
         </div>
 

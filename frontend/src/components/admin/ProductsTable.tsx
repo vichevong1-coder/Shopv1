@@ -9,7 +9,7 @@ interface Props {
   onRestore: (product: Product) => void;
 }
 
-const pill = (label: string, bg: string, color = '#fff'): React.CSSProperties => ({
+const pill = (bg: string, color = '#fff'): React.CSSProperties => ({
   display: 'inline-block',
   padding: '0.125rem 0.5rem',
   borderRadius: '9999px',
@@ -22,10 +22,10 @@ const pill = (label: string, bg: string, color = '#fff'): React.CSSProperties =>
 
 const stockBadge = (total: number) => {
   if (total === 0)
-    return <span style={pill('Out of Stock', '#fee2e2', '#991b1b')}>Out of Stock</span>;
+    return <span style={pill('#fee2e2', '#991b1b')}>Out of Stock</span>;
   if (total <= 10)
-    return <span style={pill(`Low: ${total}`, '#fef3c7', '#92400e')}>Low: {total}</span>;
-  return <span style={pill(`${total} in stock`, '#d1fae5', '#065f46')}>{total} in stock</span>;
+    return <span style={pill('#fef3c7', '#92400e')}>Low: {total}</span>;
+  return <span style={pill('#d1fae5', '#065f46')}>{total} in stock</span>;
 };
 
 const ProductsTable = ({ products, onEdit, onDelete, onRestore }: Props) => {
@@ -128,16 +128,21 @@ const ProductsTable = ({ products, onEdit, onDelete, onRestore }: Props) => {
                 <td style={{ padding: '0.75rem 1rem' }}>
                   <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '0.25rem' }}>
                     {p.isDeleted && (
-                      <span style={pill('Deleted', '#ef4444')}>Deleted</span>
+                      <span style={pill('#fee2e2', '#991b1b')}>Deleted</span>
                     )}
                     {!p.isDeleted && !p.isActive && (
-                      <span style={pill('Inactive', '#f59e0b')}>Inactive</span>
+                      <span style={pill('#fef3c7', '#92400e')}>Inactive</span>
                     )}
                     {!p.isDeleted && p.isActive && (
-                      <span style={pill('Active', '#10b981')}>Active</span>
+                      <span style={pill('#d1fae5', '#065f46')}>Active</span>
                     )}
                     {p.isFeatured && (
-                      <span style={pill('Featured', '#6366f1')}>Featured</span>
+                      <span style={pill('#ede9fe', '#5b21b6')}>Featured</span>
+                    )}
+                    {p.compareAtPriceInCents && p.compareAtPriceInCents > p.priceInCents && (
+                      <span style={pill('#fff7ed', '#c2410c')}>
+                        {Math.round((1 - p.priceInCents / p.compareAtPriceInCents) * 100)}% off
+                      </span>
                     )}
                   </div>
                 </td>

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import type { Product, ProductVariant, ProductImage } from '../../types/product';
 import { useAppDispatch } from '../../redux/hooks';
@@ -69,10 +69,19 @@ const ProductForm = ({ product, onSuccess }: Props) => {
   const [brand, setBrand] = useState(product?.brand ?? '');
   const [category, setCategory] = useState<Product['category']>(product?.category ?? 'shirt');
   const [gender, setGender] = useState<Product['gender']>(product?.gender ?? 'unisex');
-  const [priceStr, setPriceStr] = useState(product ? String(product.priceInCents / 100) : '');
-  const [compareStr, setCompareStr] = useState(
-    product?.compareAtPriceInCents ? String(product.compareAtPriceInCents / 100) : ''
-  );
+  const [priceStr, setPriceStr] = useState(() => {
+    if (!product) return '';
+    // If discounted, show the original (compare-at) price in the Price field
+    if (product.compareAtPriceInCents && product.compareAtPriceInCents > product.priceInCents) {
+      return String(product.compareAtPriceInCents / 100);
+    }
+    return String(product.priceInCents / 100);
+  });
+  const existingDiscount = product?.compareAtPriceInCents && product.compareAtPriceInCents > product.priceInCents
+    ? Math.round((1 - product.priceInCents / product.compareAtPriceInCents) * 100)
+    : 0;
+  const [discountEnabled, setDiscountEnabled] = useState(existingDiscount > 0);
+  const [discountPct, setDiscountPct] = useState(existingDiscount > 0 ? String(existingDiscount) : '');
   const [tags, setTags] = useState(product?.tags.join(', ') ?? '');
   const [isFeatured, setIsFeatured] = useState(product?.isFeatured ?? false);
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
@@ -80,6 +89,8 @@ const ProductForm = ({ product, onSuccess }: Props) => {
   // Images state
   const [images, setImages] = useState<ProductImage[]>(product?.images ?? []);
   const [uploading, setUploading] = useState(false);
+  const dragIndex = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   // Variants state (color-grouped)
   const [colorGroups, setColorGroups] = useState<ColorGroup[]>(
@@ -110,6 +121,32 @@ const ProductForm = ({ product, onSuccess }: Props) => {
 
   const removeImage = (idx: number) =>
     setImages((prev) => prev.filter((_, i) => i !== idx));
+
+  const moveImage = useCallback((from: number, to: number) => {
+    setImages((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  }, []);
+
+  const handleDragStart = (i: number) => { dragIndex.current = i; };
+  const handleDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    setDragOverIdx(i);
+  };
+  const handleDrop = (i: number) => {
+    if (dragIndex.current !== null && dragIndex.current !== i) {
+      moveImage(dragIndex.current, i);
+    }
+    dragIndex.current = null;
+    setDragOverIdx(null);
+  };
+  const handleDragEnd = () => {
+    dragIndex.current = null;
+    setDragOverIdx(null);
+  };
 
   // ── Color group helpers ──────────────────────────────────────────────────────
 
@@ -154,12 +191,19 @@ const ProductForm = ({ product, onSuccess }: Props) => {
     e.preventDefault();
     setError('');
 
-    const priceInCents = Math.round(parseFloat(priceStr) * 100);
-    if (isNaN(priceInCents) || priceInCents <= 0) {
+    const originalPriceInCents = Math.round(parseFloat(priceStr) * 100);
+    if (isNaN(originalPriceInCents) || originalPriceInCents <= 0) {
       setError('Enter a valid price');
       setActiveTab('general');
       return;
     }
+
+    const pct = discountEnabled && discountPct
+      ? Math.min(99, Math.max(1, parseFloat(discountPct)))
+      : 0;
+    const priceInCents = pct > 0
+      ? Math.round(originalPriceInCents * (1 - pct / 100))
+      : originalPriceInCents;
 
     const body: Partial<Product> = {
       name,
@@ -168,7 +212,7 @@ const ProductForm = ({ product, onSuccess }: Props) => {
       category,
       gender,
       priceInCents,
-      compareAtPriceInCents: compareStr ? Math.round(parseFloat(compareStr) * 100) : undefined,
+      compareAtPriceInCents: pct > 0 ? originalPriceInCents : undefined,
       tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
       isFeatured,
       isActive,
@@ -264,6 +308,13 @@ const ProductForm = ({ product, onSuccess }: Props) => {
             />
           </div>
 
+          <Input
+            label="Tags (comma-separated)"
+            placeholder="summer, casual, new"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+          />
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
               <label style={labelStyle}>Category</label>
@@ -291,7 +342,29 @@ const ProductForm = ({ product, onSuccess }: Props) => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} />
+              Featured
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+              Active
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={discountEnabled}
+                onChange={(e) => {
+                  setDiscountEnabled(e.target.checked);
+                  if (!e.target.checked) setDiscountPct('');
+                }}
+              />
+              Discount
+            </label>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
             <Input
               label="Price (USD)"
               type="number"
@@ -302,33 +375,47 @@ const ProductForm = ({ product, onSuccess }: Props) => {
               onChange={(e) => setPriceStr(e.target.value)}
               required
             />
-            <Input
-              label="Compare-at Price (USD)"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="39.99"
-              value={compareStr}
-              onChange={(e) => setCompareStr(e.target.value)}
-            />
-          </div>
-
-          <Input
-            label="Tags (comma-separated)"
-            placeholder="summer, casual, new"
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-          />
-
-          <div style={{ display: 'flex', gap: '1.5rem' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
-              <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} />
-              Featured
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
-              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-              Active
-            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+              <label style={{ ...labelStyle, color: discountEnabled ? '#374151' : '#9ca3af' }}>
+                Discount %
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="99"
+                placeholder="0"
+                disabled={!discountEnabled}
+                value={discountPct}
+                onChange={(e) => setDiscountPct(e.target.value)}
+                style={{
+                  ...selectStyle,
+                  background: discountEnabled ? '#fff' : '#f3f4f6',
+                  color: discountEnabled ? '#111827' : '#9ca3af',
+                  cursor: discountEnabled ? 'text' : 'not-allowed',
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+              <label style={{ ...labelStyle, color: discountEnabled && discountPct && priceStr ? '#374151' : '#9ca3af' }}>
+                Sale Price
+              </label>
+              <input
+                readOnly
+                value={
+                  discountEnabled && discountPct && priceStr
+                    ? `$${(parseFloat(priceStr) * (1 - Math.min(99, Math.max(1, parseFloat(discountPct))) / 100)).toFixed(2)}`
+                    : ''
+                }
+                placeholder="—"
+                style={{
+                  ...selectStyle,
+                  background: '#f3f4f6',
+                  color: discountEnabled && discountPct && priceStr ? '#111827' : '#9ca3af',
+                  cursor: 'not-allowed',
+                  fontWeight: discountEnabled && discountPct && priceStr ? 600 : 400,
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -336,14 +423,47 @@ const ProductForm = ({ product, onSuccess }: Props) => {
       {/* ── Tab: Images ── */}
       {activeTab === 'images' && (
         <div>
+          <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.75rem' }}>
+            Drag to reorder · First image is the cover. Use arrows to move one step.
+          </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
             {images.map((img, i) => (
-              <div key={img.publicId} style={{ position: 'relative' }}>
+              <div
+                key={img.publicId}
+                draggable
+                onDragStart={() => handleDragStart(i)}
+                onDragOver={(e) => handleDragOver(e, i)}
+                onDrop={() => handleDrop(i)}
+                onDragEnd={handleDragEnd}
+                style={{
+                  position: 'relative',
+                  cursor: 'grab',
+                  opacity: dragOverIdx === i ? 0.5 : 1,
+                  outline: dragOverIdx === i ? '2px dashed #6366f1' : 'none',
+                  borderRadius: '0.375rem',
+                  transition: 'opacity 0.15s',
+                }}
+              >
+                {/* Cover badge */}
+                {i === 0 && (
+                  <div style={{
+                    position: 'absolute', bottom: 24, left: 0, right: 0,
+                    background: 'rgba(99,102,241,0.85)', color: '#fff',
+                    fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.06em',
+                    textAlign: 'center', padding: '2px 0', zIndex: 2,
+                    textTransform: 'uppercase',
+                  }}>
+                    Cover
+                  </div>
+                )}
+
                 <img
                   src={img.url}
                   alt=""
-                  style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: '0.375rem', border: '1px solid #e5e7eb' }}
+                  style={{ width: 140, height: 140, objectFit: 'cover', borderRadius: '0.375rem', border: '1px solid #e5e7eb', display: 'block' }}
                 />
+
+                {/* Remove */}
                 <button
                   type="button"
                   onClick={() => removeImage(i)}
@@ -351,15 +471,44 @@ const ProductForm = ({ product, onSuccess }: Props) => {
                     position: 'absolute', top: 4, right: 4,
                     background: 'rgba(0,0,0,0.6)', color: '#fff',
                     border: 'none', borderRadius: '50%',
-                    width: 22, height: 22, fontSize: '0.625rem',
-                    cursor: 'pointer', lineHeight: 1,
+                    width: 20, height: 20, fontSize: '0.6rem',
+                    cursor: 'pointer', lineHeight: 1, zIndex: 3,
                   }}
                 >
                   ✕
                 </button>
+
+                {/* Arrow buttons */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px' }}>
+                  <button
+                    type="button"
+                    disabled={i === 0}
+                    onClick={() => moveImage(i, i - 1)}
+                    style={{
+                      background: 'none', border: '1px solid #e5e7eb', borderRadius: '0.25rem',
+                      width: 28, height: 20, fontSize: '0.65rem', cursor: i === 0 ? 'not-allowed' : 'pointer',
+                      opacity: i === 0 ? 0.3 : 1, color: '#374151',
+                    }}
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    disabled={i === images.length - 1}
+                    onClick={() => moveImage(i, i + 1)}
+                    style={{
+                      background: 'none', border: '1px solid #e5e7eb', borderRadius: '0.25rem',
+                      width: 28, height: 20, fontSize: '0.65rem', cursor: i === images.length - 1 ? 'not-allowed' : 'pointer',
+                      opacity: i === images.length - 1 ? 0.3 : 1, color: '#374151',
+                    }}
+                  >
+                    ›
+                  </button>
+                </div>
               </div>
             ))}
           </div>
+
           {images.length === 0 && (
             <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '1rem' }}>No images yet.</p>
           )}
