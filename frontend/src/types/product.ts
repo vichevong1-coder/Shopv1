@@ -29,7 +29,11 @@ export interface Product {
   isActive: boolean;
   isDeleted: boolean;
   deletedAt?: string;
-  ratings: { average: number; count: number };
+  ratings: {
+    average: number;
+    count: number;
+    distribution: { 1: number; 2: number; 3: number; 4: number; 5: number };
+  };
   createdAt: string;
   updatedAt: string;
 }

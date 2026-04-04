@@ -32,6 +32,7 @@ export interface IProduct extends Document {
   ratings: {
     average: number;
     count: number;
+    distribution: { 1: number; 2: number; 3: number; 4: number; 5: number };
   };
 }
 
@@ -82,6 +83,13 @@ const productSchema = new Schema<IProduct>(
     ratings: {
       average: { type: Number, default: 0, min: 0, max: 5 },
       count: { type: Number, default: 0, min: 0 },
+      distribution: {
+        1: { type: Number, default: 0, min: 0 },
+        2: { type: Number, default: 0, min: 0 },
+        3: { type: Number, default: 0, min: 0 },
+        4: { type: Number, default: 0, min: 0 },
+        5: { type: Number, default: 0, min: 0 },
+      },
     },
   },
   { timestamps: true }

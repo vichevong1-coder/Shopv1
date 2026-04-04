@@ -51,11 +51,15 @@ export const listProducts = async (req: Request, res: Response, next: NextFuncti
 
     const sortMap: Record<string, Record<string, 1 | -1>> = {
       createdAt_desc: { createdAt: -1 },
-      createdAt_asc: { createdAt: 1 },
-      price_asc: { priceInCents: 1 },
-      price_desc: { priceInCents: -1 },
-      name_asc: { name: 1 },
-      rating_desc: { 'ratings.average': -1 },
+      createdAt_asc:  { createdAt: 1 },
+      newest:         { createdAt: -1 },
+      oldest:         { createdAt: 1 },
+      price_asc:      { priceInCents: 1 },
+      price_desc:     { priceInCents: -1 },
+      name_asc:       { name: 1 },
+      name_desc:      { name: -1 },
+      popular:        { 'ratings.count': -1, 'ratings.average': -1 },
+      rating_desc:    { 'ratings.average': -1 },
     };
     const sortQuery = sortMap[sort] ?? { createdAt: -1 };
 
@@ -167,13 +171,17 @@ export const restoreProduct = async (req: Request, res: Response, next: NextFunc
 /** GET /api/admin/products  (Admin — includes deleted) */
 export const adminListProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { page = '1', limit = '20', search, includeDeleted } = req.query as Record<string, string>;
+    const { page = '1', limit = '20', search, includeDeleted, category, gender, isActive } = req.query as Record<string, string>;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filter: Record<string, any> = {};
     // Setting isDeleted explicitly bypasses the pre-find auto-exclude hook
     filter.isDeleted = includeDeleted === 'true' ? { $in: [true, false] } : { $ne: true };
     if (search) filter.$text = { $search: search };
+    if (category) filter.category = category;
+    if (gender) filter.gender = gender;
+    if (isActive === 'true') filter.isActive = true;
+    if (isActive === 'false') filter.isActive = false;
 
     const pageNum = Math.max(1, parseInt(page, 10));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
