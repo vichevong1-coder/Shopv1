@@ -7,7 +7,7 @@ const initialState: ProductState = {
   items: [],
   featuredItems: [],
   currentProduct: null,
-  pagination: { page: 1, limit: 20, total: 0, pages: 0 },
+  pagination: { page: 1, limit: 16, total: 0, pages: 0 },
   filters: {},
   isLoading: false,
   error: null,

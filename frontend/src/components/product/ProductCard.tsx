@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import type { Product } from '../../types/product';
-import { formatPrice } from '../../utils/money';
+import { useCurrency } from '../../utils/money';
 
 interface Props {
   product: Product;
@@ -43,8 +43,10 @@ const StarRating = ({ average, count }: { average: number; count: number }) => {
 };
 
 const ProductCard = ({ product }: Props) => {
+  const { formatPrice } = useCurrency();
   const [imgIndex, setImgIndex] = useState(0);
   const [hovered, setHovered] = useState(false);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
 
   const images = product.images;
   const hasMultiple = images.length > 1;
@@ -59,6 +61,13 @@ const ProductCard = ({ product }: Props) => {
   const uniqueColors = Array.from(
     new Map(product.variants.map(v => [v.color, v.colorHex])).entries()
   ).slice(0, 6);
+
+  const preloadImages = useCallback(() => {
+    images.forEach(img => {
+      const el = new Image();
+      el.src = img.url;
+    });
+  }, [images]);
 
   const prevImg = useCallback(
     (e: React.MouseEvent) => {
@@ -81,7 +90,7 @@ const ProductCard = ({ product }: Props) => {
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', fontFamily: '"DM Sans", sans-serif', position: 'relative' }}
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={() => { setHovered(true); preloadImages(); }}
       onMouseLeave={() => setHovered(false)}
     >
       {/* Image container */}
@@ -292,25 +301,36 @@ const ProductCard = ({ product }: Props) => {
         {/* Color swatches */}
         {uniqueColors.length > 0 && (
           <div style={{ display: 'flex', gap: '4px', marginTop: '8px', flexWrap: 'wrap' }}>
-            {uniqueColors.map(([colorName, colorHex]) => (
-              <button
-                key={colorName}
-                title={colorName}
-                style={{
-                  width: '16px',
-                  height: '16px',
-                  borderRadius: '50%',
-                  background: colorHex || '#e8e2d9',
-                  border: '1.5px solid rgba(0,0,0,0.1)',
-                  cursor: 'pointer',
-                  padding: 0,
-                  transition: 'transform 0.15s',
-                  outline: 'none',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.2)')}
-                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-              />
-            ))}
+            {uniqueColors.map(([colorName, colorHex], i) => {
+              const isSelected = selectedColor === colorName;
+              return (
+                <button
+                  key={colorName}
+                  title={colorName}
+                  onClick={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSelectedColor(colorName);
+                    // map color index → image index (bounded by images array)
+                    setImgIndex(Math.min(i, images.length - 1));
+                  }}
+                  style={{
+                    width: '16px',
+                    height: '16px',
+                    borderRadius: '50%',
+                    background: colorHex || '#e8e2d9',
+                    border: '1.5px solid rgba(0,0,0,0.1)',
+                    cursor: 'pointer',
+                    padding: 0,
+                    outline: 'none',
+                    transition: 'transform 0.15s',
+                    transform: isSelected ? 'scale(1.2)' : 'scale(1)',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.2)')}
+                  onMouseLeave={e => { e.currentTarget.style.transform = isSelected ? 'scale(1.2)' : 'scale(1)'; }}
+                />
+              );
+            })}
           </div>
         )}
       </div>

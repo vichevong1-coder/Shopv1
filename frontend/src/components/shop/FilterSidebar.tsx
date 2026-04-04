@@ -73,8 +73,6 @@ const Accordion = ({ label, defaultOpen = false, children }: AccordionProps) => 
 interface FilterSidebarProps {
   filters: ProductFilters;
   onChange: (f: ProductFilters) => void;
-  totalInStock?: number;
-  totalOutOfStock?: number;
   maxPrice?: number;
   isMobileDialog?: boolean;
   onClose?: () => void;
@@ -83,8 +81,6 @@ interface FilterSidebarProps {
 const FilterSidebar = ({
   filters,
   onChange,
-  totalInStock = 39,
-  totalOutOfStock = 1,
   maxPrice = 38000,
   isMobileDialog = false,
   onClose,
@@ -113,25 +109,6 @@ const FilterSidebar = ({
       )}
 
       <div style={{ padding: isMobileDialog ? '0 1.5rem' : '0' }}>
-        {/* Availability */}
-        <Accordion label="Availability" defaultOpen>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-            {[
-              { label: `In stock (${totalInStock})`, value: 'in_stock' },
-              { label: `Out of stock (${totalOutOfStock})`, value: 'out_of_stock' },
-            ].map((opt) => (
-              <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  style={{ width: '15px', height: '15px', accentColor: '#0f0f0f', cursor: 'pointer', flexShrink: 0 }}
-                  onChange={() => {/* availability filter placeholder */}}
-                />
-                <span style={{ fontSize: '0.82rem', color: '#374151' }}>{opt.label}</span>
-              </label>
-            ))}
-          </div>
-        </Accordion>
-
         {/* Price */}
         <Accordion label="Price" defaultOpen>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -262,13 +239,6 @@ const FilterSidebar = ({
           </div>
         </Accordion>
 
-        {/* Brand */}
-        <Accordion label="Brand">
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
-            <input type="checkbox" style={{ width: '15px', height: '15px', accentColor: '#0f0f0f', cursor: 'pointer' }} />
-            <span style={{ fontSize: '0.82rem', color: '#374151' }}>Shopv1 ({totalInStock + totalOutOfStock})</span>
-          </label>
-        </Accordion>
       </div>
 
       {/* Mobile apply button */}

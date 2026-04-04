@@ -4,7 +4,7 @@ import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 import { fetchMyOrdersThunk } from '../../redux/slices/orderSlice';
 import { addItemThunk } from '../../redux/slices/cartSlice';
 import { useUI } from '../../context/UIContext';
-import { formatPrice } from '../../utils/money';
+import { useCurrency } from '../../utils/money';
 import { OrderCardSkeleton } from '../../components/common/Skeleton';
 import type { Order } from '../../types/order';
 
@@ -69,6 +69,7 @@ const paymentLabel = (order: Order): string => {
 };
 
 const OrderCard = ({ order }: { order: Order }) => {
+  const { formatPrice } = useCurrency();
   const dispatch = useAppDispatch();
   const { openCart, showToast } = useUI();
   const [open, setOpen] = useState(false);

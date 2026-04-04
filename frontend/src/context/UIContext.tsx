@@ -1,6 +1,8 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
+export type Currency = 'USD' | 'KHR';
+
 type ToastType = 'success' | 'error' | 'info';
 
 interface Toast {
@@ -14,6 +16,7 @@ interface UIState {
   mobileMenuOpen: boolean;
   searchOpen: boolean;
   toast: Toast | null;
+  currency: Currency;
 }
 
 type UIAction =
@@ -24,7 +27,8 @@ type UIAction =
   | { type: 'OPEN_SEARCH' }
   | { type: 'CLOSE_SEARCH' }
   | { type: 'SHOW_TOAST'; payload: { message: string; type: ToastType } }
-  | { type: 'CLEAR_TOAST' };
+  | { type: 'CLEAR_TOAST' }
+  | { type: 'SET_CURRENCY'; payload: Currency };
 
 interface UIContextValue extends UIState {
   openCart: () => void;
@@ -34,15 +38,17 @@ interface UIContextValue extends UIState {
   openSearch: () => void;
   closeSearch: () => void;
   showToast: (message: string, type?: ToastType) => void;
+  setCurrency: (currency: Currency) => void;
 }
 
-const UIContext = createContext<UIContextValue | null>(null);
+export const UIContext = createContext<UIContextValue | null>(null);
 
 const initialState: UIState = {
   cartDrawerOpen: false,
   mobileMenuOpen: false,
   searchOpen: false,
   toast: null,
+  currency: 'USD',
 };
 
 const uiReducer = (state: UIState, action: UIAction): UIState => {
@@ -57,6 +63,8 @@ const uiReducer = (state: UIState, action: UIAction): UIState => {
       return { ...state, toast: { id: Date.now().toString(), ...action.payload } };
     case 'CLEAR_TOAST':
       return { ...state, toast: null };
+    case 'SET_CURRENCY':
+      return { ...state, currency: action.payload };
   }
 };
 
@@ -79,6 +87,8 @@ export const UIProvider = ({ children }: { children: ReactNode }) => {
     closeSearch:     () => dispatch({ type: 'CLOSE_SEARCH' }),
     showToast: (message, type = 'info') =>
       dispatch({ type: 'SHOW_TOAST', payload: { message, type } }),
+    setCurrency: (currency) =>
+      dispatch({ type: 'SET_CURRENCY', payload: currency }),
   };
 
   return <UIContext.Provider value={value}>{children}</UIContext.Provider>;

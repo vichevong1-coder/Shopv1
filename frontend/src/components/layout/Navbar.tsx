@@ -3,9 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '../../redux/hooks';
 import { logoutThunk } from '../../redux/slices/authSlice';
 import { useUI } from '../../context/UIContext';
+import type { Currency } from '../../context/UIContext';
 
 const NAV_LINKS = [
-  { label: 'Home', href: '/' },
   {
     label: 'Shop',
     href: '/shop',
@@ -27,7 +27,6 @@ const NAV_LINKS = [
     dropdown: [
       { label: 'New Arrivals', href: '/shop?sort=newest' },
       { label: 'Best Sellers', href: '/shop?sort=popular' },
-      { label: 'Sale', href: '/shop?sort=price_asc' },
     ],
   },
   {
@@ -36,17 +35,14 @@ const NAV_LINKS = [
     dropdown: [
       { label: 'About Us', href: '/about' },
       { label: 'Contact', href: '/contact' },
-      { label: 'FAQ', href: '/faq' },
     ],
   },
 ];
 
 const CURRENCIES = [
-  { flag: '🇺🇸', code: 'USD', label: 'US Dollar' },
-  { flag: '🇰🇭', code: 'KHR', label: 'Cambodian Riel' },
-  { flag: '🇪🇺', code: 'EUR', label: 'Euro' },
-  { flag: '🇬🇧', code: 'GBP', label: 'British Pound' },
-];
+  { code: 'USD', label: 'US Dollar',       symbol: '$'  },
+  { code: 'KHR', label: 'Cambodian Riel',  symbol: '៛'  },
+] as const;
 
 const dropdownStyle: React.CSSProperties = {
   position: 'absolute',
@@ -78,10 +74,11 @@ const Navbar = () => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
-  const [selectedCurrency, setSelectedCurrency] = useState(CURRENCIES[0]);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
-  const { openCart, openSearch } = useUI();
+  const { openCart, openSearch, currency, setCurrency } = useUI();
+  const selectedCurrency = CURRENCIES.find(c => c.code === currency) ?? CURRENCIES[0];
   const { user } = useAppSelector((s) => s.auth);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -92,6 +89,12 @@ const Navbar = () => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   useEffect(() => {
@@ -166,18 +169,22 @@ const Navbar = () => {
         >
           {/* LEFT — nav + mobile hamburger */}
           <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-            <button
-              onClick={() => setMobileOpen(true)}
-              style={{ ...iconBtn, gap: '6px', marginRight: '0.5rem', padding: '6px 8px' }}
-              aria-label="Menu"
-            >
-              <svg width="20" height="15" viewBox="0 0 20 15" fill="none">
-                <path d="M0 1h20M0 7.5h20M0 14h20" stroke="#0f0f0f" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-              <span style={{ fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, display: window.innerWidth > 768 ? 'none' : 'block' }}>Menu</span>
-            </button>
+            {/* Hamburger — mobile only */}
+            {isMobile && (
+              <button
+                onClick={() => setMobileOpen(true)}
+                style={{ ...iconBtn, gap: '6px', marginRight: '0.5rem', padding: '6px 8px' }}
+                aria-label="Menu"
+              >
+                <svg width="20" height="15" viewBox="0 0 20 15" fill="none">
+                  <path d="M0 1h20M0 7.5h20M0 14h20" stroke="#0f0f0f" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                <span style={{ fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500 }}>Menu</span>
+              </button>
+            )}
 
-            <nav style={{ display: 'flex', alignItems: 'center' }}>
+            {/* Desktop nav — hidden on mobile */}
+            <nav style={{ display: isMobile ? 'none' : 'flex', alignItems: 'center' }}>
               {NAV_LINKS.map((link) => (
                 <div key={link.label} style={{ position: 'relative' }}>
                   {link.dropdown ? (
@@ -281,40 +288,37 @@ const Navbar = () => {
 
           {/* RIGHT — utilities */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flex: 1, justifyContent: 'flex-end' }}>
-            {/* Currency */}
-            <div style={{ position: 'relative' }}>
+            {/* Currency — desktop only */}
+            <div style={{ position: 'relative', display: isMobile ? 'none' : 'block' }}>
               <button
                 onClick={() => { setCurrencyOpen(v => !v); setUserMenuOpen(false); }}
                 style={{ ...iconBtn, fontSize: '0.7rem', letterSpacing: '0.06em', gap: '4px', padding: '6px 8px', fontFamily: 'inherit' }}
                 onMouseEnter={e => (e.currentTarget.style.opacity = '0.5')}
                 onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
               >
-                <span style={{ fontSize: '0.9rem' }}>{selectedCurrency.flag}</span>
-                <span>{selectedCurrency.code} $</span>
+                <span>{selectedCurrency.code} {selectedCurrency.symbol}</span>
                 <svg width="8" height="5" viewBox="0 0 8 5" fill="none" style={{ transition: 'transform 0.2s', transform: currencyOpen ? 'rotate(180deg)' : 'none' }}>
                   <path d="M1 1l3 3 3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                 </svg>
               </button>
               {currencyOpen && (
-                <div style={{ ...dropdownStyle, left: 'auto', right: 0, minWidth: '210px' }}>
+                <div style={{ ...dropdownStyle, left: 'auto', right: 0, minWidth: '180px' }}>
                   {CURRENCIES.map((c) => (
                     <button
                       key={c.code}
-                      onClick={() => { setSelectedCurrency(c); setCurrencyOpen(false); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.6rem 1.25rem', background: c.code === selectedCurrency.code ? '#f8f5f1' : 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#0f0f0f', fontFamily: 'inherit', textAlign: 'left', transition: 'background 0.12s' }}
+                      onClick={() => { setCurrency(c.code as Currency); setCurrencyOpen(false); }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0.6rem 1.25rem', background: c.code === selectedCurrency.code ? '#f8f5f1' : 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#0f0f0f', fontFamily: 'inherit', textAlign: 'left', transition: 'background 0.12s' }}
                       onMouseEnter={e => (e.currentTarget.style.background = '#f8f5f1')}
                       onMouseLeave={e => (e.currentTarget.style.background = c.code === selectedCurrency.code ? '#f8f5f1' : 'transparent')}
                     >
-                      <span style={{ fontSize: '1rem' }}>{c.flag}</span>
                       <span>{c.label}</span>
+                      <span style={{ color: '#9a8f85' }}>{c.code} {c.symbol}</span>
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Language */}
-            <button style={{ ...iconBtn, fontSize: '0.7rem', letterSpacing: '0.06em', padding: '6px 8px', fontFamily: 'inherit', fontWeight: 500 }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.5')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>EN</button>
 
             {/* Search */}
             <button onClick={openSearch} style={iconBtn} aria-label="Search" onMouseEnter={e => (e.currentTarget.style.opacity = '0.5')} onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>

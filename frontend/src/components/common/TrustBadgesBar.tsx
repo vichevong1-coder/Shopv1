@@ -2,46 +2,48 @@ const BADGES = [
   {
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <rect x="4" y="6" width="24" height="20" rx="3" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M4 13h24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <circle cx="16" cy="21" r="3" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M16 18v-2M16 24v2M13 21h-2M19 21h2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    ),
+    heading: 'Portfolio project',
+    subtext: 'Built for demonstration',
+  },
+  {
+    icon: (
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
         <path d="M16 4C9.373 4 4 9.373 4 16s5.373 12 12 12 12-5.373 12-12S22.627 4 16 4z" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M11 16.5l3.5 3.5 6.5-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M10 16.5l4 4 8-8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
-    heading: 'Customer service',
-    subtext: 'Mon – Fri, 9am – 5pm',
+    heading: 'No real orders',
+    subtext: 'Safe to explore freely',
   },
   {
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <path d="M4 20h18M4 20V13l5-8h10l5 8v7M4 20l-2 6h28l-2-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M22 20v-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        <circle cx="9" cy="26" r="2" fill="currentColor" />
-        <circle cx="23" cy="26" r="2" fill="currentColor" />
+        <rect x="5" y="9" width="22" height="15" rx="2" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M5 14h22" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M9 18h4M9 21h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M20 17l2 2-2 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
-    heading: 'Free shipping',
-    subtext: 'On all orders over $75',
+    heading: 'Test checkout',
+    subtext: '4242 4242 4242 4242',
   },
   {
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <path d="M8 8h16v14a4 4 0 01-4 4h-8a4 4 0 01-4-4V8z" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M4 8h24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M12 8V6a4 4 0 018 0v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M16 14v6M13 17l3-3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="4" y="8" width="10" height="16" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="18" y="4" width="10" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="18" y="16" width="10" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M14 12h4M14 20h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
-    heading: 'Free returns',
-    subtext: '30-day hassle-free returns',
-  },
-  {
-    icon: (
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <path d="M16 4l10 4v8c0 6-4 11-10 13C10 27 6 22 6 16V8l10-4z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-        <path d="M11.5 16.5l3 3 6-6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-    heading: 'Secure payment',
-    subtext: '256-bit SSL encryption',
+    heading: 'MERN stack',
+    subtext: 'MongoDB, Express, React, Node.js',
   },
 ];
 

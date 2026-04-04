@@ -7,7 +7,7 @@ import { createOrderThunk } from '../redux/slices/orderSlice';
 import { clearCartLocal } from '../redux/slices/cartSlice';
 import { createStripePaymentIntent } from '../api/payment';
 import { useUI } from '../context/UIContext';
-import { formatPrice } from '../utils/money';
+import { useCurrency } from '../utils/money';
 import type { ShippingAddress } from '../types/order';
 import type { PaymentMethod } from '../types/order';
 import CheckoutSteps from '../components/checkout/CheckoutSteps';
@@ -25,6 +25,7 @@ const EMPTY_ADDRESS: ShippingAddress = {
 };
 
 const Checkout = () => {
+  const { formatPrice } = useCurrency();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { showToast } = useUI();
@@ -104,16 +105,16 @@ const Checkout = () => {
   return (
     <div style={{ minHeight: '100vh', background: '#f8f5f1', paddingBottom: '4rem' }}>
       {/* Header */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #e8e2d9', padding: '1.25rem 2rem', textAlign: 'center' }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #e8e2d9', padding: '1.25rem 1rem', textAlign: 'center' }}>
         <h1 style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '1.5rem', fontWeight: 600, color: '#0f0f0f', margin: 0 }}>
           Checkout
         </h1>
       </div>
 
-      <div style={{ maxWidth: '560px', margin: '0 auto', padding: '2.5rem 1.5rem 0' }}>
+      <div style={{ maxWidth: '560px', margin: '0 auto', padding: 'clamp(1.25rem, 5vw, 2.5rem) clamp(1rem, 4vw, 1.5rem) 0' }}>
         <CheckoutSteps currentStep={step} />
 
-        <div style={{ background: '#fff', borderRadius: '0.75rem', padding: '2rem', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+        <div style={{ background: '#fff', borderRadius: '0.75rem', padding: 'clamp(1.25rem, 5vw, 2rem)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           {/* Step 1 — Shipping */}
           {step === 1 && (
             <ShippingForm value={address} onChange={setAddress} onNext={() => setStep(2)} />

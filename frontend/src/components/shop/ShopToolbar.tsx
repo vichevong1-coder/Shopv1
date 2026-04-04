@@ -1,4 +1,4 @@
-type GridCols = 1 | 2 | 3;
+type GridCols = 2 | 3 | 4;
 type SortOption = { value: string; label: string };
 
 const SORT_OPTIONS: SortOption[] = [
@@ -12,12 +12,6 @@ const SORT_OPTIONS: SortOption[] = [
   { value: 'newest', label: 'Date: New to Old' },
 ];
 
-const GridIcon1 = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-    <rect x="1" y="1" width="16" height="16" rx="1" stroke="currentColor" strokeWidth="1.4" />
-  </svg>
-);
-
 const GridIcon2 = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
     <rect x="1" y="1" width="7" height="16" rx="1" stroke="currentColor" strokeWidth="1.4" />
@@ -30,6 +24,15 @@ const GridIcon3 = () => (
     <rect x="1" y="1" width="4" height="16" rx="0.5" stroke="currentColor" strokeWidth="1.4" />
     <rect x="7" y="1" width="4" height="16" rx="0.5" stroke="currentColor" strokeWidth="1.4" />
     <rect x="13" y="1" width="4" height="16" rx="0.5" stroke="currentColor" strokeWidth="1.4" />
+  </svg>
+);
+
+const GridIcon4 = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <rect x="1"  y="1" width="2.5" height="16" rx="0.5" stroke="currentColor" strokeWidth="1.4" />
+    <rect x="5.2" y="1" width="2.5" height="16" rx="0.5" stroke="currentColor" strokeWidth="1.4" />
+    <rect x="9.4" y="1" width="2.5" height="16" rx="0.5" stroke="currentColor" strokeWidth="1.4" />
+    <rect x="13.6" y="1" width="2.5" height="16" rx="0.5" stroke="currentColor" strokeWidth="1.4" />
   </svg>
 );
 
@@ -107,9 +110,9 @@ const ShopToolbar = ({
           </button>
         )}
 
-        {([1, 2, 3] as GridCols[]).map((cols) => {
+        {([2, 3, 4] as GridCols[]).map((cols) => {
           const isActive = gridCols === cols;
-          const Icon = cols === 1 ? GridIcon1 : cols === 2 ? GridIcon2 : GridIcon3;
+          const Icon = cols === 2 ? GridIcon2 : cols === 3 ? GridIcon3 : GridIcon4;
           return (
             <button
               key={cols}

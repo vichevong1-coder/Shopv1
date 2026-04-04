@@ -5,9 +5,10 @@ import {
   updateItemLocal, removeItemLocal,
 } from '../../redux/slices/cartSlice';
 import { useUI } from '../../context/UIContext';
-import { formatPrice } from '../../utils/money';
+import { useCurrency } from '../../utils/money';
 
 const CartDrawer = () => {
+  const { formatPrice } = useCurrency();
   const dispatch = useAppDispatch();
   const { items, isLoading } = useAppSelector((s) => s.cart);
   const { user } = useAppSelector((s) => s.auth);
@@ -52,8 +53,7 @@ const CartDrawer = () => {
           top: 0,
           right: 0,
           bottom: 0,
-          width: '420px',
-          maxWidth: '100vw',
+          width: 'min(420px, 100vw)',
           background: '#ffffff',
           zIndex: 501,
           display: 'flex',

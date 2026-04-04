@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUI } from '../../context/UIContext';
+import { useAppSelector } from '../../redux/hooks';
 
-const TRENDING = ['Linen shirt', 'Wide leg pants', 'Oversized jacket', 'Summer dress', 'Leather bag'];
 const CATEGORIES = [
   { label: 'Clothing', href: '/shop/category/shirt' },
   { label: 'Bottoms', href: '/shop/category/pant' },
@@ -15,6 +15,12 @@ const SearchDialog = () => {
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  const { featuredItems, items } = useAppSelector((s) => s.products);
+  const trending = useMemo(() => {
+    const pool = featuredItems.length >= 5 ? featuredItems : [...featuredItems, ...items];
+    return Array.from(new Map(pool.map(p => [p._id, p.name])).values()).slice(0, 5);
+  }, [featuredItems, items]);
 
   useEffect(() => {
     if (searchOpen) {
@@ -163,7 +169,7 @@ const SearchDialog = () => {
             Trending
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {TRENDING.map((term) => (
+            {trending.map((term) => (
               <button
                 key={term}
                 onClick={() => {

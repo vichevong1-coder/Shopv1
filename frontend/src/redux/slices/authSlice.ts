@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
-import type { User, AuthState } from '../../types/user';
+import type { AuthState } from '../../types/user';
 import * as authApi from '../../api/auth';
 
 const initialState: AuthState = {

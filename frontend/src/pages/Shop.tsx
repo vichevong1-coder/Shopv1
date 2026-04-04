@@ -1,9 +1,8 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
 import { fetchProducts } from '../redux/slices/productSlice';
 import type { ProductFilters } from '../types/product';
-import type { Product } from '../types/product';
 import ProductCard from '../components/product/ProductCard';
 import Pagination from '../components/common/Pagination';
 import TrustBadgesBar from '../components/common/TrustBadgesBar';
@@ -11,7 +10,7 @@ import CollectionHero from '../components/shop/CollectionHero';
 import ShopToolbar from '../components/shop/ShopToolbar';
 import FilterSidebar from '../components/shop/FilterSidebar';
 
-type GridCols = 1 | 2 | 3;
+type GridCols = 2 | 3 | 4;
 
 const paramsToFilters = (sp: URLSearchParams): ProductFilters => ({
   gender: sp.get('gender') ?? undefined,
@@ -56,8 +55,20 @@ const Shop = () => {
   const { items, pagination, isLoading } = useAppSelector((s) => s.products);
   const { gender: genderParam, cat: catParam } = useParams<{ gender?: string; cat?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [gridCols, setGridCols] = useState<GridCols>(3);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [gridCols, setGridCols] = useState<GridCols>(() => window.innerWidth < 768 ? 2 : 4);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) setGridCols(cols => cols > 2 ? 2 : cols as GridCols);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const page = Number(searchParams.get('page') ?? 1);
   const filters = paramsToFilters(searchParams);
@@ -68,10 +79,22 @@ const Shop = () => {
     category: filters.category ?? catParam,
   };
 
+  const limit = gridCols * 4;
+  const shouldScrollRef = useRef(false);
+
   useEffect(() => {
-    dispatch(fetchProducts({ ...effectiveFilters, page }));
+    if (searchParams.toString()) shouldScrollRef.current = true;
+    dispatch(fetchProducts({ ...effectiveFilters, page, limit }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, genderParam, catParam]);
+  }, [searchParams, genderParam, catParam, gridCols]);
+
+  // Scroll to products once loading completes
+  useEffect(() => {
+    if (!isLoading && shouldScrollRef.current) {
+      shouldScrollRef.current = false;
+      toolbarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [isLoading]);
 
   const handleFiltersChange = useCallback(
     (newFilters: ProductFilters) => setSearchParams(filtersToParams(newFilters, 1)),
@@ -89,7 +112,7 @@ const Shop = () => {
   const handlePageChange = useCallback(
     (p: number) => {
       setSearchParams(filtersToParams(effectiveFilters, p));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      toolbarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
     [effectiveFilters, setSearchParams]
   );
@@ -107,7 +130,7 @@ const Shop = () => {
   ];
 
   const gridCssColumns =
-    gridCols === 1 ? '1fr' : gridCols === 2 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)';
+    gridCols === 2 ? 'repeat(2, 1fr)' : gridCols === 3 ? 'repeat(3, 1fr)' : 'repeat(4, 1fr)';
 
   return (
     <div style={{ fontFamily: '"DM Sans", sans-serif' }}>
@@ -121,6 +144,7 @@ const Shop = () => {
       {/* Shop content */}
       <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '0 1.5rem 3rem' }}>
         {/* Toolbar row */}
+        <div ref={toolbarRef} />
         <ShopToolbar
           total={pagination.total}
           gridCols={gridCols}
@@ -129,23 +153,25 @@ const Shop = () => {
           onSortChange={handleSortChange}
           hasFilters={hasActiveFilters(effectiveFilters)}
           onClearFilters={handleClearFilters}
-          onOpenMobileFilters={() => setMobileFiltersOpen(true)}
+          onOpenMobileFilters={isMobile ? () => setMobileFiltersOpen(true) : undefined}
         />
 
         {/* Sidebar + grid layout */}
         <div style={{ display: 'flex', gap: '2rem', marginTop: '1.75rem', alignItems: 'flex-start' }}>
-          {/* Desktop filter sidebar */}
-          <FilterSidebar
-            filters={effectiveFilters}
-            onChange={handleFiltersChange}
-            totalInStock={pagination.total}
-          />
+          {/* Desktop filter sidebar — hidden on mobile */}
+          {!isMobile && (
+            <FilterSidebar
+              filters={effectiveFilters}
+              onChange={handleFiltersChange}
+
+            />
+          )}
 
           {/* Products */}
           <div style={{ flex: 1, minWidth: 0 }}>
             {isLoading ? (
               <div style={{ display: 'grid', gridTemplateColumns: gridCssColumns, gap: '1.5rem' }}>
-                {Array.from({ length: gridCols * 2 }).map((_, i) => <SkeletonCard key={i} />)}
+                {Array.from({ length: limit }).map((_, i) => <SkeletonCard key={i} />)}
               </div>
             ) : items.length === 0 ? (
               <div style={{ padding: '4rem 2rem', textAlign: 'center' }}>
@@ -183,7 +209,6 @@ const Shop = () => {
         <FilterSidebar
           filters={effectiveFilters}
           onChange={handleFiltersChange}
-          totalInStock={pagination.total}
           isMobileDialog
           onClose={() => setMobileFiltersOpen(false)}
         />

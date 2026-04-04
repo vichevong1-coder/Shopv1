@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
 import { fetchOrderByIdThunk } from '../redux/slices/orderSlice';
-import { formatPrice } from '../utils/money';
+import { useCurrency } from '../utils/money';
 import Spinner from '../components/common/Spinner';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -15,6 +15,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const OrderConfirmation = () => {
+  const { formatPrice } = useCurrency();
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();

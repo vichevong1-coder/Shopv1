@@ -4,9 +4,10 @@ import {
   updateItemThunk, removeItemThunk, clearCartThunk,
   updateItemLocal, removeItemLocal, clearCartLocal,
 } from '../redux/slices/cartSlice';
-import { formatPrice } from '../utils/money';
+import { useCurrency } from '../utils/money';
 
 const Cart = () => {
+  const { formatPrice } = useCurrency();
   const dispatch = useAppDispatch();
   const { items, isLoading } = useAppSelector((s) => s.cart);
   const { user } = useAppSelector((s) => s.auth);

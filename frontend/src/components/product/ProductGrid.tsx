@@ -1,6 +1,6 @@
 import type { Product } from '../../types/product';
 import ProductCard from './ProductCard';
-import Skeleton from '../common/Skeleton';
+import { ProductCardSkeleton } from '../common/Skeleton';
 
 interface Props {
   products: Product[];
@@ -20,12 +20,7 @@ const ProductGrid = ({ products, isLoading = false }: Props) => {
     return (
       <div style={gridStyle}>
         {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
-          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <Skeleton height="200px" borderRadius="0.5rem" />
-            <Skeleton width="60%" height="0.75rem" />
-            <Skeleton width="80%" height="1rem" />
-            <Skeleton width="40%" height="0.875rem" />
-          </div>
+          <ProductCardSkeleton key={i} />
         ))}
       </div>
     );
