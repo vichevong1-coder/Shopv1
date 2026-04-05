@@ -14,8 +14,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY ?? process.env.SUPABASE_KEY!
 );
 
-const BUCKET       = process.env.SUPABASE_BUCKET ?? 'Products';
-const MOCKDATA_DIR = path.resolve(__dirname, '../../../mockdata4');
+const BUCKET        = process.env.SUPABASE_BUCKET ?? 'Products';
+const MOCKDATA_DIR  = path.resolve(__dirname, '../../../mockdata4');
+const MOCKDATA_DIR2 = path.resolve(__dirname, '../../../mockdata');
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ interface ProductDef {
   isFeatured?: boolean;
   sizes: string[];
   colorImages: ColorImage[];
+  imageDir?: string;
 }
 
 // ─── Product definitions ──────────────────────────────────────────────────────
@@ -254,6 +256,115 @@ const PRODUCTS: ProductDef[] = [
       { file: 'Gemini_Generated_Image_ub142fub142fub14.png', color: 'Rust',  colorHex: '#B5541E' },
     ],
   },
+
+  // ── mockdata (6 products) ──────────────────────────────────────────────────
+  {
+    name: 'Slim Fit Chino',
+    description:
+      'Versatile slim-fit chino in stretch cotton twill. Smart enough for the office, casual enough for weekends. Features a zip fly with button closure and side slash pockets.',
+    priceInCents: 5900,
+    compareAtPriceInCents: 7500,
+    category: 'pant',
+    gender: 'men',
+    brand: 'FitForm',
+    tags: ['chino', 'slim', 'men', 'pants'],
+    isFeatured: true,
+    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    imageDir: MOCKDATA_DIR2,
+    colorImages: [
+      { file: 'Gemini_Generated_Image_1ub4fx1ub4fx1ub4.png', color: 'Olive',    colorHex: '#556B2F' },
+      { file: 'Gemini_Generated_Image_7wzhx97wzhx97wzh.png', color: 'Charcoal', colorHex: '#4A4A4A' },
+      { file: 'Gemini_Generated_Image_lwsibllwsibllwsi.png', color: 'Khaki',    colorHex: '#C3A882' },
+    ],
+  },
+  {
+    name: 'Wide-Leg Chino Trouser',
+    description:
+      'Elevated wide-leg trouser with a high-rise waist in structured cotton blend. Clean front with side slash pockets and a single back welt pocket.',
+    priceInCents: 6500,
+    compareAtPriceInCents: 8500,
+    category: 'pant',
+    gender: 'women',
+    brand: 'FitForm',
+    tags: ['trouser', 'wide-leg', 'women', 'chino'],
+    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    imageDir: MOCKDATA_DIR2,
+    colorImages: [
+      { file: 'Gemini_Generated_Image_5a48sg5a48sg5a48.png', color: 'Khaki',    colorHex: '#C3A882' },
+      { file: 'Gemini_Generated_Image_c7jtk3c7jtk3c7jt.png', color: 'Charcoal', colorHex: '#4A4A4A' },
+      { file: 'Gemini_Generated_Image_kd0viykd0viykd0v.png', color: 'Olive',    colorHex: '#556B2F' },
+    ],
+  },
+  {
+    name: 'Kids Cargo Pant',
+    description:
+      'Rugged pull-on cargo pants with an elasticated drawstring waist and snap-button utility pockets on each leg. Built for active play.',
+    priceInCents: 2900,
+    category: 'pant',
+    gender: 'kids',
+    brand: 'FitForm',
+    tags: ['kids', 'cargo', 'pants', 'play'],
+    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    imageDir: MOCKDATA_DIR2,
+    colorImages: [
+      { file: 'Gemini_Generated_Image_5s2ozc5s2ozc5s2o.png', color: 'Khaki',    colorHex: '#C3A882' },
+      { file: 'Gemini_Generated_Image_gw45qpgw45qpgw45.png', color: 'Olive',    colorHex: '#4A5C2F' },
+      { file: 'Gemini_Generated_Image_jga2k3jga2k3jga2.png', color: 'Charcoal', colorHex: '#5A5A5A' },
+    ],
+  },
+  {
+    name: 'Kids Jogger Pant',
+    description:
+      'Cozy pull-on jogger with an elastic drawstring waist and ribbed ankle cuffs. Soft brushed interior keeps kids comfortable all day.',
+    priceInCents: 2500,
+    category: 'pant',
+    gender: 'kids',
+    brand: 'FitForm',
+    tags: ['kids', 'jogger', 'pants', 'comfort'],
+    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    imageDir: MOCKDATA_DIR2,
+    colorImages: [
+      { file: 'Gemini_Generated_Image_84h9yo84h9yo84h9.png', color: 'Khaki',    colorHex: '#C3A882' },
+      { file: 'Gemini_Generated_Image_ljzu0mljzu0mljzu.png', color: 'Olive',    colorHex: '#4A5C2F' },
+      { file: 'Gemini_Generated_Image_s5l5v8s5l5v8s5l5.png', color: 'Charcoal', colorHex: '#5A5A5A' },
+    ],
+  },
+  {
+    name: 'Kids Crewneck Sweatshirt',
+    description:
+      'Classic crewneck sweatshirt in medium-weight fleece with ribbed cuffs and hem. Relaxed fit with a soft brushed interior.',
+    priceInCents: 3200,
+    compareAtPriceInCents: 4200,
+    category: 'shirt',
+    gender: 'kids',
+    brand: 'Basics Co.',
+    tags: ['kids', 'sweatshirt', 'crewneck', 'fleece'],
+    isFeatured: true,
+    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    imageDir: MOCKDATA_DIR2,
+    colorImages: [
+      { file: 'Gemini_Generated_Image_9ntrui9ntrui9ntr.png', color: 'White',      colorHex: '#F5F5F5' },
+      { file: 'Gemini_Generated_Image_dwvh4edwvh4edwvh.png', color: 'Sage',       colorHex: '#8FAE97' },
+      { file: 'Gemini_Generated_Image_nx1cu3nx1cu3nx1c.png', color: 'Steel Blue', colorHex: '#607D8B' },
+    ],
+  },
+  {
+    name: 'Explore Every Day Graphic Tee',
+    description:
+      "Fun kids' tee featuring a cheerful dinosaur explorer graphic. Made from 100% soft cotton jersey. Easy-care and machine washable.",
+    priceInCents: 1900,
+    category: 'shirt',
+    gender: 'kids',
+    brand: 'Basics Co.',
+    tags: ['kids', 'tshirt', 'graphic', 'dinosaur'],
+    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    imageDir: MOCKDATA_DIR2,
+    colorImages: [
+      { file: 'Gemini_Generated_Image_luhxuyluhxuyluhx.png', color: 'Steel Blue', colorHex: '#607D8B' },
+      { file: 'Gemini_Generated_Image_nypfjqnypfjqnypf.png', color: 'White',      colorHex: '#F5F5F5' },
+      { file: 'Gemini_Generated_Image_qifqunqifqunqifq.png', color: 'Sage',       colorHex: '#8FAE97' },
+    ],
+  },
 ];
 
 // ─── Upload local PNG to Supabase Storage ─────────────────────────────────────
@@ -336,10 +447,10 @@ async function saveProduct(
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function seed() {
-  console.log('\nSeedProducts4 — local mockdata4 upload');
+  console.log('\nSeedProducts4 — local mockdata + mockdata4 upload');
   console.log('─'.repeat(55));
   console.log(`  Products : ${PRODUCTS.length}`);
-  console.log(`  Images   : 36 PNG files from /mockdata4`);
+  console.log(`  Images   : 54 PNG files from /mockdata (18) + /mockdata4 (36)`);
   console.log('─'.repeat(55) + '\n');
 
   const mongoUri = process.env.MONGO_URI;
@@ -362,7 +473,7 @@ async function seed() {
       for (const { file, color, colorHex } of def.colorImages) {
         console.log(`\n  Color: ${color} (${colorHex})`);
 
-        const localPath   = path.join(MOCKDATA_DIR, file);
+        const localPath   = path.join(def.imageDir ?? MOCKDATA_DIR, file);
         const slug        = def.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         const colorSlug   = color.toLowerCase().replace(/\s+/g, '-');
         const storagePath = `${def.category}/${def.gender}/${slug}-${colorSlug}.png`;

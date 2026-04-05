@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+.env.*
+coverage
+*.test.ts
+src/seeders
+src/__tests__

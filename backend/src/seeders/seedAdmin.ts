@@ -5,7 +5,14 @@ import User from '../models/User';
 const seedAdmin = async () => {
   await connectDB();
 
-  const email = 'admin@shopv1.com';
+  const email = process.env.ADMIN_EMAIL;
+  const password = process.env.ADMIN_PASSWORD;
+  const name = process.env.ADMIN_NAME;
+
+  if (!password) {
+    console.error('ADMIN_PASSWORD env var is required');
+    process.exit(1);
+  }
 
   const existing = await User.findOne({ email });
   if (existing) {
@@ -14,9 +21,9 @@ const seedAdmin = async () => {
   }
 
   await User.create({
-    name: 'Admin',
+    name,
     email,
-    password: 'admin123',
+    password,
     role: 'admin',
     refreshTokens: [],
   });

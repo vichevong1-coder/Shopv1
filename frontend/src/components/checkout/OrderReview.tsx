@@ -1,5 +1,5 @@
 import Button from '../common/Button';
-import { formatPrice } from '../../utils/money';
+import { useCurrency } from '../../utils/money';
 import type { CartItem } from '../../types/cart';
 import type { ShippingAddress } from '../../types/order';
 
@@ -12,6 +12,7 @@ interface Props {
 }
 
 const OrderReview = ({ items, shippingAddress, onBack, onNext, renderAboveActions }: Props) => {
+  const { formatPrice } = useCurrency();
   const subtotal = items.reduce((s, i) => s + i.priceInCents * i.quantity, 0);
   const tax = Math.round(subtotal * 0.1);
   const shipping = 0;

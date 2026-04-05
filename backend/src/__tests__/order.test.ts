@@ -80,7 +80,7 @@ const SHIPPING = {
 };
 
 const orderBody = (qty = 2, overrides: Record<string, unknown> = {}) => ({
-  items: [{ productId, variantId, quantity: qty, size: 'M', color: 'White' }],
+  items: [{ product: productId, quantity: qty, size: 'M', color: 'White' }],
   shippingAddress: SHIPPING,
   paymentMethod: 'stripe',
   ...overrides,
