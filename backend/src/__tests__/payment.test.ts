@@ -26,6 +26,10 @@ import stripe from '../config/stripe';
 //   4000 0000 0000 0005  Card Declined        payment_intent.payment_failed
 //   4242 4242 4242 4241  Incorrect CVC        payment_intent.payment_failed
 
+jest.mock('../utils/email', () => ({
+  sendOrderConfirmationEmail: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('../config/stripe', () => ({
   __esModule: true,
   default: {

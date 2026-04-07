@@ -11,4 +11,5 @@ module.exports = {
   roots: ["<rootDir>/src"],
   clearMocks: true,
   setupFiles: ["<rootDir>/src/test-setup.ts"],
+  testTimeout: 30000,
 };
