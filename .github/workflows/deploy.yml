@@ -70,7 +70,7 @@ jobs:
       - name: Build (tsc + vite)
         run: npm run build
         env:
-          VITE_API_URL: https://api.vongshop.com
+          VITE_API_URL: https://api.vongshop.com/api
           VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
 
   # ── Job 3: Build & Push Docker Images ───────────────────────────────────
@@ -119,7 +119,7 @@ jobs:
             ${{ env.FRONTEND_IMAGE }}:latest
             ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
           build-args: |
-            VITE_API_URL=https://api.vongshop.com
+            VITE_API_URL=https://api.vongshop.com/api
             VITE_STRIPE_PUBLISHABLE_KEY=${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
