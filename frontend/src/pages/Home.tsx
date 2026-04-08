@@ -36,7 +36,7 @@ const Home = () => {
       <HeroSlider />
 
       {/* ── Marquee Strip ── */}
-      <div style={{ background: '#ffffff', overflow: 'hidden', padding: '0.85rem 0', borderBottom: '1px solid #e8e2d9', borderTop: '1px solid #e8e2d9' }}>
+      <div style={{ background: '#ffffff', overflow: 'hidden', width: '100%', padding: '0.85rem 0', borderBottom: '1px solid #e8e2d9', borderTop: '1px solid #e8e2d9' }}>
         <style>{`
           @keyframes marquee {
             0%   { transform: translateX(0); }
@@ -85,6 +85,16 @@ const Home = () => {
             opacity: 1;
             transform: translateX(0);
           }
+          .category-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.75rem;
+          }
+          @media (max-width: 767px) {
+            .category-grid {
+              grid-template-columns: repeat(2, 1fr);
+            }
+          }
         `}</style>
         <div className="marquee-track">
           {[...Array(24)].map((_, i) => (
@@ -125,13 +135,7 @@ const Home = () => {
             </h2>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(5, 1fr)',
-              gap: '0.75rem',
-            }}
-          >
+          <div className="category-grid">
             {categories.map((cat) => (
               <Link
                 key={cat.label}

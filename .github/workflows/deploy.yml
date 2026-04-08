@@ -67,6 +67,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run tests
+        run: npm run test:run
+
       - name: Build (tsc + vite)
         run: npm run build
         env:
