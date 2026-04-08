@@ -32,7 +32,7 @@ const Checkout = () => {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [address, setAddress] = useState<ShippingAddress>(EMPTY_ADDRESS);
-  const [paymentMethod] = useState('stripe');
+  const [paymentMethod] = useState<'stripe'>('stripe');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
   const [submitting, setSubmitting] = useState(false);

@@ -62,7 +62,6 @@ const shortOrderId = (orderNumber: string) =>
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const paymentLabel = (order: Order): string => {
-  if (order.paymentMethod === 'bakong') return 'Bakong KHQR';
   const { cardBrand, cardLast4 } = order.paymentResult ?? {};
   if (cardBrand && cardLast4) return `${capitalise(cardBrand)} •••• ${cardLast4}`;
   return 'Credit / Debit Card';
