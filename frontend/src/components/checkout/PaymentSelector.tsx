@@ -1,4 +1,4 @@
-type PaymentMethodOption = 'stripe' | 'bakong';
+type PaymentMethodOption = 'stripe';
 
 interface Props {
   selected: PaymentMethodOption;
@@ -52,30 +52,6 @@ const PaymentSelector = ({ selected, onChange }: Props) => (
           </span>
         ))}
       </div>
-    </button>
-
-    {/* Bakong */}
-    <button
-      onClick={() => onChange('bakong')}
-      style={{
-        display: 'flex', alignItems: 'center', gap: '0.875rem',
-        padding: '1rem', border: `2px solid ${selected === 'bakong' ? '#0f0f0f' : '#e8e2d9'}`,
-        borderRadius: '0.5rem', background: '#fff', cursor: 'pointer', textAlign: 'left',
-        transition: 'border-color 0.2s',
-      }}
-    >
-      <Radio active={selected === 'bakong'} />
-      <div>
-        <p style={{ fontFamily: '"DM Sans", sans-serif', fontWeight: 600, fontSize: '0.9rem', color: '#0f0f0f', margin: 0 }}>
-          Bakong KHQR
-        </p>
-        <p style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '0.78rem', color: '#9a8f85', margin: '0.15rem 0 0' }}>
-          Cambodia's national QR payment
-        </p>
-      </div>
-      <span style={{ marginLeft: 'auto', padding: '0.2rem 0.55rem', background: '#f8f5f1', border: '1px solid #e8e2d9', borderRadius: '0.25rem', fontFamily: '"DM Sans", sans-serif', fontSize: '0.65rem', fontWeight: 700, color: '#9a8f85', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-        KHQR
-      </span>
     </button>
   </div>
 );

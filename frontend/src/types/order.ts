@@ -35,7 +35,7 @@ export type OrderStatus =
   | 'delivered'
   | 'cancelled';
 
-export type PaymentMethod = 'stripe' | 'bakong';
+export type PaymentMethod = 'stripe';
 
 export interface OrderUser {
   _id: string;

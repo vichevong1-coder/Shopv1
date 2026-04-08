@@ -51,8 +51,19 @@ const BakongQR = ({ orderId, totalInCents, onSuccess, onError, onBack }: Props) 
           setStage('paid');
           setTimeout(onSuccess, 1500);
         }
-      } catch {
-        // network blip — keep polling
+      } catch (err: unknown) {
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        // Stop polling on non-recoverable errors (404 = order gone, 401 = session expired)
+        if (status === 404 || status === 401 || status === 403) {
+          clearInterval(pollRef.current!);
+          const msg = status === 404
+            ? 'Payment session expired. Please restart checkout.'
+            : 'Session expired. Please log in again.';
+          setErrorMsg(msg);
+          setStage('error');
+          onError(msg);
+        }
+        // Otherwise treat as a transient network blip — keep polling
       }
     }, 5000);
 

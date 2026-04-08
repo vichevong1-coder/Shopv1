@@ -9,13 +9,10 @@ import { createStripePaymentIntent } from '../api/payment';
 import { useUI } from '../context/UIContext';
 import { useCurrency } from '../utils/money';
 import type { ShippingAddress } from '../types/order';
-import type { PaymentMethod } from '../types/order';
 import CheckoutSteps from '../components/checkout/CheckoutSteps';
 import ShippingForm from '../components/checkout/ShippingForm';
 import OrderReview from '../components/checkout/OrderReview';
-import PaymentSelector from '../components/checkout/PaymentSelector';
 import StripePayment from '../components/checkout/StripePayment';
-import BakongQR from '../components/checkout/BakongQR';
 import Spinner from '../components/common/Spinner';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? '');
@@ -35,7 +32,7 @@ const Checkout = () => {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [address, setAddress] = useState<ShippingAddress>(EMPTY_ADDRESS);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('stripe');
+  const [paymentMethod] = useState('stripe');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -132,9 +129,6 @@ const Checkout = () => {
                 shippingAddress={address}
                 onBack={() => setStep(1)}
                 onNext={handleGoToPayment}
-                renderAboveActions={
-                  <PaymentSelector selected={paymentMethod} onChange={setPaymentMethod} />
-                }
               />
             )
           )}
@@ -156,18 +150,8 @@ const Checkout = () => {
                 </Elements>
               )}
 
-              {paymentMethod === 'bakong' && currentOrder && (
-                <BakongQR
-                  orderId={currentOrder._id}
-                  totalInCents={total}
-                  onSuccess={handlePaymentSuccess}
-                  onError={handlePaymentError}
-                  onBack={() => setStep(2)}
-                />
-              )}
-
-              {/* Loading states */}
-              {paymentMethod === 'stripe' && !clientSecret && (
+              {/* Loading state */}
+              {!clientSecret && (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
                   <Spinner />
                 </div>
