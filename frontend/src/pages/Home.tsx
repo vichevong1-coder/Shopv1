@@ -51,8 +51,8 @@ const Home = () => {
             animation-play-state: paused;
           }
           .cat-tile {
-            background: #f8f5f1;
-            border: 1px solid #e8e2d9;
+            background: #1a1a1a;
+            border: 1px solid rgba(255,255,255,0.08);
             aspect-ratio: 3 / 2;
             border-radius: 4px;
             display: flex;
@@ -60,11 +60,12 @@ const Home = () => {
             justify-content: flex-end;
             padding: 1.25rem;
             cursor: pointer;
-            transition: border-color 0.2s ease;
+            transition: border-color 0.2s ease, transform 0.2s ease;
             overflow: hidden;
           }
           .cat-tile:hover {
-            border-color: #111827;
+            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
           }
           .cat-arrow {
             display: inline-flex;
@@ -76,7 +77,7 @@ const Home = () => {
             font-weight: 500;
             letter-spacing: 0.1em;
             text-transform: uppercase;
-            color: #111827;
+            color: rgba(248,245,241,0.8);
             opacity: 0;
             transform: translateX(-10px);
             transition: opacity 0.25s ease, transform 0.25s ease;
@@ -84,6 +85,11 @@ const Home = () => {
           .cat-tile:hover .cat-arrow {
             opacity: 1;
             transform: translateX(0);
+          }
+          @media (max-width: 767px) {
+            .cat-tile {
+              aspect-ratio: 4 / 3;
+            }
           }
           .category-grid {
             display: grid;
@@ -142,7 +148,7 @@ const Home = () => {
                 to={cat.href}
                 style={{ textDecoration: 'none' }}
               >
-                <div className="cat-tile">
+                <div className="cat-tile" style={{ background: cat.bg }}>
                   <p
                     style={{
                       fontFamily: '"DM Sans", sans-serif',
@@ -150,7 +156,7 @@ const Home = () => {
                       fontWeight: 400,
                       letterSpacing: '0.12em',
                       textTransform: 'uppercase',
-                      color: '#9a8f85',
+                      color: 'rgba(248,245,241,0.5)',
                       margin: '0 0 0.3rem',
                     }}
                   >
@@ -161,7 +167,7 @@ const Home = () => {
                       fontFamily: '"Cormorant Garamond", serif',
                       fontSize: 'clamp(1.3rem, 2.5vw, 1.8rem)',
                       fontWeight: 500,
-                      color: '#111827',
+                      color: '#f8f5f1',
                       margin: 0,
                       lineHeight: 1.1,
                     }}

@@ -23,9 +23,14 @@ const ProductCarousel = ({ title, viewAllHref, products, isLoading }: ProductCar
   return (
     <section style={{ padding: 'clamp(2rem, 4vw, 3rem) 0 clamp(4rem, 8vw, 6rem)', background: '#f8f5f1', overflow: 'hidden' }}>
       <style>{`
+        .carousel-item {
+          flex: 0 0 calc(20% - 0.8rem);
+          min-width: 0;
+          scroll-snap-align: start;
+        }
         @media (max-width: 767px) {
           .carousel-item {
-            flex: 0 0 calc(50% - 0.5rem) !important;
+            flex: 0 0 calc(50% - 0.5rem);
           }
         }
       `}</style>
@@ -99,12 +104,12 @@ const ProductCarousel = ({ title, viewAllHref, products, isLoading }: ProductCar
         >
           {isLoading
             ? Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="carousel-item" style={{ flex: '0 0 calc(20% - 0.8rem)', minWidth: 0, scrollSnapAlign: 'start' }}>
+                <div key={i} className="carousel-item">
                   <ProductCardSkeleton />
                 </div>
               ))
             : products.map((p) => (
-                <div key={p._id} className="carousel-item" style={{ flex: '0 0 calc(20% - 0.8rem)', minWidth: 0, scrollSnapAlign: 'start' }}>
+                <div key={p._id} className="carousel-item">
                   <ProductCard product={p} />
                 </div>
               ))

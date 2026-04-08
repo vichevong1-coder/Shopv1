@@ -73,7 +73,7 @@ const HeroSlider = () => {
 
   return (
     <div
-      style={{ position: 'relative', width: '100%', overflow: 'hidden' }}
+      style={{ position: 'relative', width: '100%', overflow: 'hidden', transform: 'translateZ(0)' }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
