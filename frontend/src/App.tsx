@@ -24,6 +24,8 @@ import Shop from './pages/Shop';
 // Lazily loaded — heavier or less frequently visited
 const About            = lazy(() => import('./pages/About'));
 const Contact          = lazy(() => import('./pages/Contact'));
+const PrivacyPolicy    = lazy(() => import('./pages/PrivacyPolicy'));
+const Terms            = lazy(() => import('./pages/Terms'));
 const ProductDetail    = lazy(() => import('./pages/ProductDetail'));
 const Cart             = lazy(() => import('./pages/Cart'));
 const Checkout         = lazy(() => import('./pages/Checkout'));
@@ -103,6 +105,9 @@ const App = () => {
             <Route path="/cart" element={<PublicLayout><Cart /></PublicLayout>} />
             <Route path="/about" element={<PublicLayout><About /></PublicLayout>} />
             <Route path="/contact" element={<PublicLayout><Contact /></PublicLayout>} />
+            <Route path="/privacy-policy" element={<PublicLayout><PrivacyPolicy /></PublicLayout>} />
+            <Route path="/terms" element={<PublicLayout><Terms /></PublicLayout>} />
+            <Route path="/terms-of-service" element={<PublicLayout><Terms /></PublicLayout>} />
 
             {/* Protected customer routes */}
             <Route path="/profile" element={<ProtectedRoute><PublicLayout><Profile /></PublicLayout></ProtectedRoute>} />

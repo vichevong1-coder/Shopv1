@@ -7,8 +7,6 @@ const STACK = [
   { name: 'React',           role: 'UI Framework',       desc: 'Vite + TypeScript SPA with lazy-loaded routes.' },
   { name: 'Node.js',         role: 'Runtime',            desc: 'Server runtime powering the entire backend.' },
   { name: 'Redux Toolkit',   role: 'State Management',   desc: 'Auth, cart, products, and orders — all in Redux slices.' },
-  { name: 'Stripe',          role: 'Card Payments',      desc: 'PaymentIntent flow with idempotent webhook confirmation.' },
-  { name: 'Bakong KHQR',    role: 'Local Payments',     desc: 'QR-based payment flow via the NBC Bakong platform.' },
   { name: 'Supabase',        role: 'File Storage',       desc: 'Direct frontend image uploads via signed URLs.' },
   { name: 'Docker',          role: 'Containerisation',   desc: 'Multi-stage Dockerfiles for backend and frontend (Nginx).' },
   { name: 'GitHub Actions',  role: 'CI / CD',            desc: 'Automated build, image push, and deploy pipeline on every push.' },
@@ -19,19 +17,19 @@ const STACK = [
 const TEST_CARDS = [
   {
     status: 'Success',
-    statusColor: '#c4845e',
+    statusColor: '#16a34a',
     card: '4242 4242 4242 4242',
     desc: 'Payment succeeds immediately — order is confirmed.',
   },
   {
     status: '3D Auth Required',
-    statusColor: '#9a8f85',
+    statusColor: '#ca8a04',
     card: '4000 0025 0000 3155',
     desc: 'Triggers Stripe 3D Secure authentication flow.',
   },
   {
     status: 'Declined',
-    statusColor: '#6b6b6b',
+    statusColor: '#dc2626',
     card: '4000 0000 0000 9995',
     desc: 'Card is declined — tests error handling and stock release.',
   },
@@ -301,13 +299,6 @@ const About = () => {
           <div style={{ background: '#e8e2d9', padding: '0.85rem 1.25rem', fontSize: '0.8rem', color: '#374151', lineHeight: 1.6 }}>
             <strong>Expiry:</strong> any future date (e.g., 12/26) &nbsp;·&nbsp; <strong>CVC:</strong> any 3 digits (e.g., 123) &nbsp;·&nbsp; <strong>Name:</strong> any value
           </div>
-
-          <div style={{ marginTop: '1.5rem', padding: '1.25rem', background: '#ffffff', borderLeft: '3px solid #e8e2d9' }}>
-            <p style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0f0f0f', marginBottom: '0.4rem' }}>Bakong KHQR</p>
-            <p style={{ fontSize: '0.8rem', color: '#9a8f85', lineHeight: 1.6, margin: 0 }}>
-              Select "Bakong QR" at checkout to see the QR payment flow. In test mode the QR is generated but actual payment confirmation requires a Bakong-connected account. Status polling is wired and ready.
-            </p>
-          </div>
         </div>
       </section>
 
@@ -365,7 +356,7 @@ const About = () => {
               { title: 'No real commerce', body: 'Shopv1 is a demonstration project. It does not sell real goods or services. Any "purchases" made are test transactions only.' },
               { title: 'No real payments', body: 'All Stripe transactions use Stripe\'s test mode. No real money is charged. Real payment credentials should never be entered here.' },
               { title: 'No data guarantees', body: 'Account data, order history, and cart contents may be reset or cleared at any time without notice as part of development and testing.' },
-              { title: 'AI-generated content', body: 'Product images, descriptions, and names are artificially generated and do not represent real brands, people, or products.' },
+              { title: 'Fake content', body: 'Product images, descriptions, and names are fictional and do not represent real brands, people, or products.' },
               { title: 'Third-party services', body: 'Shopv1 integrates Stripe, Bakong KHQR, Supabase, and Google Gemini for demonstration. Their respective terms of service apply to those services.' },
             ].map((item) => (
               <div key={item.title} style={{ background: '#ffffff', padding: '1rem 1.25rem', borderLeft: '2px solid #e8e2d9' }}>
