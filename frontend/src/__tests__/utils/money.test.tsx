@@ -31,7 +31,6 @@ describe('formatPrice', () => {
     // 1 USD = 4,100 KHR; 100 cents = 1 USD = 4,100 KHR
     it('converts 2999 cents to riel (≈122,959 KHR)', () => {
       const result = formatPrice(2999, 'KHR')
-      // Should include a KHR-related symbol or the currency code
       expect(result).toMatch(/KHR|៛/)
     })
 
@@ -42,7 +41,6 @@ describe('formatPrice', () => {
 
     it('converts 100 cents (1 USD) to 4,100 KHR', () => {
       const result = formatPrice(100, 'KHR')
-      // 1 * 4100 = 4100
       expect(result).toMatch(/4[,.]?100/)
     })
 
@@ -55,7 +53,7 @@ describe('formatPrice', () => {
 
 describe('useCurrency hook', () => {
   const wrapper = ({ children }: { children: ReactNode }) => (
-    UIProvider({ children }) as JSX.Element
+    <UIProvider>{children}</UIProvider>
   )
 
   it('returns a formatPrice function bound to USD by default', () => {
@@ -66,7 +64,6 @@ describe('useCurrency hook', () => {
 
   it('formatPrice uses the context currency', () => {
     const { result } = renderHook(() => useCurrency(), { wrapper })
-    // Default is USD
     expect(result.current.formatPrice(100)).toBe('$1.00')
   })
 })

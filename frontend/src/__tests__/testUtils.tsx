@@ -1,5 +1,5 @@
 import { render, type RenderOptions } from '@testing-library/react'
-import { configureStore, type PreloadedState } from '@reduxjs/toolkit'
+import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
@@ -11,11 +11,11 @@ import orderReducer from '../redux/slices/orderSlice'
 import type { RootState } from '../redux/store'
 
 interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper'> {
-  preloadedState?: PreloadedState<RootState>
+  preloadedState?: Partial<RootState>
   initialRoute?: string
 }
 
-export function makeStore(preloadedState?: PreloadedState<RootState>) {
+export function makeStore(preloadedState?: Partial<RootState>) {
   return configureStore({
     reducer: {
       auth: authReducer,

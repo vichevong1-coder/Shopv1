@@ -22,7 +22,7 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     isFeatured: false,
     isActive: true,
     isDeleted: false,
-    ratings: { average: 0, count: 0 },
+    ratings: { average: 0, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
     ...overrides,
@@ -66,13 +66,13 @@ describe('ProductCard', () => {
 
   it('shows star rating when ratings.count > 0', () => {
     renderWithProviders(
-      <ProductCard product={makeProduct({ ratings: { average: 4.5, count: 12 } })} />
+      <ProductCard product={makeProduct({ ratings: { average: 4.5, count: 12, distribution: { 1: 0, 2: 0, 3: 1, 4: 3, 5: 8 } } })} />
     )
     expect(screen.getByText(/4\.5.*12/)).toBeInTheDocument()
   })
 
   it('does not show star rating when ratings.count = 0', () => {
-    renderWithProviders(<ProductCard product={makeProduct({ ratings: { average: 0, count: 0 } })} />)
+    renderWithProviders(<ProductCard product={makeProduct({ ratings: { average: 0, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } } })} />)
     // StarRating returns null when count=0
     expect(screen.queryByText(/\(\d+\)/)).not.toBeInTheDocument()
   })

@@ -36,7 +36,7 @@ function makeProduct(id: string, name: string): Product {
     isFeatured: false,
     isActive: true,
     isDeleted: false,
-    ratings: { average: 0, count: 0 },
+    ratings: { average: 0, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
     createdAt: '2024-01-01',
     updatedAt: '2024-01-01',
   }
