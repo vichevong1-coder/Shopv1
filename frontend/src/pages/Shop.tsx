@@ -21,6 +21,7 @@ const paramsToFilters = (sp: URLSearchParams): ProductFilters => ({
   maxPrice: sp.get('maxPrice') ? Number(sp.get('maxPrice')) : undefined,
   sort: sp.get('sort') ?? undefined,
   search: sp.get('search') ?? undefined,
+  isFeatured: sp.get('isFeatured') === 'true' ? true : undefined,
 });
 
 const filtersToParams = (f: ProductFilters, page: number): Record<string, string> => {
@@ -33,6 +34,7 @@ const filtersToParams = (f: ProductFilters, page: number): Record<string, string
   if (f.maxPrice) p.maxPrice = String(f.maxPrice);
   if (f.sort) p.sort = f.sort;
   if (f.search) p.search = f.search;
+  if (f.isFeatured) p.isFeatured = 'true';
   if (page > 1) p.page = String(page);
   return p;
 };
@@ -103,7 +105,11 @@ const Shop = () => {
 
   const handleSortChange = useCallback(
     (sort: string) =>
-      setSearchParams(filtersToParams({ ...effectiveFilters, sort: sort || undefined }, 1)),
+      setSearchParams(filtersToParams({
+        ...effectiveFilters,
+        sort: sort || undefined,
+        isFeatured: sort === 'featured' ? true : undefined,
+      }, 1)),
     [effectiveFilters, setSearchParams]
   );
 
@@ -149,11 +155,12 @@ const Shop = () => {
           total={pagination.total}
           gridCols={gridCols}
           onGridChange={setGridCols}
-          sort={effectiveFilters.sort ?? ''}
+          sort={effectiveFilters.sort ?? 'featured'}
           onSortChange={handleSortChange}
           hasFilters={hasActiveFilters(effectiveFilters)}
           onClearFilters={handleClearFilters}
           onOpenMobileFilters={isMobile ? () => setMobileFiltersOpen(true) : undefined}
+          isMobile={isMobile}
         />
 
         {/* Sidebar + grid layout */}

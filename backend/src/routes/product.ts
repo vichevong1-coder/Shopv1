@@ -4,6 +4,8 @@ import { adminMiddleware } from '../middleware/admin';
 import {
   listProducts,
   getFeaturedProducts,
+  getNewArrivals,
+  getBestSellers,
   getProduct,
   createProduct,
   updateProduct,
@@ -17,6 +19,8 @@ const router = Router();
 // ─── Public ───────────────────────────────────────────────────────────────────
 router.get('/', listProducts);
 router.get('/featured', getFeaturedProducts);
+router.get('/new-arrivals', getNewArrivals);
+router.get('/best-sellers', getBestSellers);
 router.get('/:id', getProduct);
 
 // ─── Admin ────────────────────────────────────────────────────────────────────

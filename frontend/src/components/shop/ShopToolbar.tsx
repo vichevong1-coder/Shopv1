@@ -2,7 +2,7 @@ type GridCols = 2 | 3 | 4;
 type SortOption = { value: string; label: string };
 
 const SORT_OPTIONS: SortOption[] = [
-  { value: '', label: 'Featured' },
+  { value: 'featured', label: 'Featured' },
   { value: 'popular', label: 'Best Selling' },
   { value: 'name_asc', label: 'A–Z' },
   { value: 'name_desc', label: 'Z–A' },
@@ -45,6 +45,7 @@ interface ShopToolbarProps {
   hasFilters?: boolean;
   onClearFilters?: () => void;
   onOpenMobileFilters?: () => void;
+  isMobile?: boolean;
 }
 
 const ShopToolbar = ({
@@ -56,6 +57,7 @@ const ShopToolbar = ({
   hasFilters,
   onClearFilters,
   onOpenMobileFilters,
+  isMobile,
 }: ShopToolbarProps) => {
   const btnBase: React.CSSProperties = {
     background: 'none',
@@ -110,7 +112,7 @@ const ShopToolbar = ({
           </button>
         )}
 
-        {([2, 3, 4] as GridCols[]).map((cols) => {
+        {(isMobile ? [2, 3] as GridCols[] : [2, 3, 4] as GridCols[]).map((cols) => {
           const isActive = gridCols === cols;
           const Icon = cols === 2 ? GridIcon2 : cols === 3 ? GridIcon3 : GridIcon4;
           return (
@@ -179,7 +181,7 @@ const ShopToolbar = ({
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239a8f85' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E")`,
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'right 0.6rem center',
-            minWidth: '180px',
+            minWidth: isMobile ? 0 : '180px',
             transition: 'border-color 0.2s',
           }}
           onFocus={e => (e.currentTarget.style.borderColor = '#0f0f0f')}

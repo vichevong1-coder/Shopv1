@@ -22,6 +22,7 @@ export const listProducts = async (req: Request, res: Response, next: NextFuncti
       limit = '20',
       search,
       brand,
+      isFeatured,
     } = req.query as Record<string, string>;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,6 +31,7 @@ export const listProducts = async (req: Request, res: Response, next: NextFuncti
     if (gender) filter.gender = gender;
     if (category) filter.category = category;
     if (brand) filter.brand = brand;
+    if (isFeatured === 'true') filter.isFeatured = true;
 
     if (minPrice || maxPrice) {
       filter.priceInCents = {};
@@ -50,6 +52,7 @@ export const listProducts = async (req: Request, res: Response, next: NextFuncti
     }
 
     const sortMap: Record<string, Record<string, 1 | -1>> = {
+      featured:       { isFeatured: -1, createdAt: -1 },
       createdAt_desc: { createdAt: -1 },
       createdAt_asc:  { createdAt: 1 },
       newest:         { createdAt: -1 },
@@ -61,7 +64,7 @@ export const listProducts = async (req: Request, res: Response, next: NextFuncti
       popular:        { 'ratings.count': -1, 'ratings.average': -1 },
       rating_desc:    { 'ratings.average': -1 },
     };
-    const sortQuery = sortMap[sort] ?? { createdAt: -1 };
+    const sortQuery = sortMap[sort] ?? { isFeatured: -1, createdAt: -1 };
 
     const pageNum = Math.max(1, parseInt(page, 10));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
@@ -81,6 +84,32 @@ export const listProducts = async (req: Request, res: Response, next: NextFuncti
         pages: Math.ceil(total / limitNum),
       },
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** GET /api/products/new-arrivals */
+export const getNewArrivals = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const products = await Product.find({ isActive: true })
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .lean();
+    res.json({ products });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** GET /api/products/best-sellers */
+export const getBestSellers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const products = await Product.aggregate([
+      { $match: { isActive: true, isDeleted: { $ne: true } } },
+      { $sample: { size: 8 } },
+    ]);
+    res.json({ products });
   } catch (err) {
     next(err);
   }

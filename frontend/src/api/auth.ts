@@ -33,7 +33,7 @@ export const logout = async (): Promise<void> => {
 
 export const refreshToken = async (): Promise<{ accessToken: string }> => {
   const { data } = await axios.post<{ accessToken: string }>(
-    `${BASE_URL}/auth/refresh-token`,
+    `${BASE_URL}/auth/token`,
     {},
     { withCredentials: true }
   );

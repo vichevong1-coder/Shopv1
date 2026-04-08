@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAppSelector } from '../../redux/hooks';
 import Spinner from './Spinner';
@@ -10,9 +10,10 @@ interface Props {
 
 const ProtectedRoute = ({ children, adminOnly = false }: Props) => {
   const { user, isInitialized } = useAppSelector((s) => s.auth);
+  const location = useLocation();
 
   if (!isInitialized) return <Spinner fullPage />;
-  if (!user) return <Navigate to="/auth/login" replace />;
+  if (!user) return <Navigate to="/auth/login" state={{ from: location.pathname }} replace />;
   if (adminOnly && user.role !== 'admin') return <Navigate to="/" replace />;
 
   return <>{children}</>;

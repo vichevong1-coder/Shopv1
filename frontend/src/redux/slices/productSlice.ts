@@ -6,6 +6,8 @@ import * as adminApi from '../../api/admin';
 const initialState: ProductState = {
   items: [],
   featuredItems: [],
+  newArrivals: [],
+  bestSellers: [],
   currentProduct: null,
   pagination: { page: 1, limit: 16, total: 0, pages: 0 },
   filters: {},
@@ -37,6 +39,32 @@ export const fetchFeaturedProducts = createAsyncThunk(
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
       return rejectWithValue(msg ?? 'Failed to fetch featured products');
+    }
+  }
+);
+
+export const fetchNewArrivals = createAsyncThunk(
+  'products/fetchNewArrivals',
+  async (_, { rejectWithValue }) => {
+    try {
+      const { products } = await productApi.getNewArrivals();
+      return products;
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      return rejectWithValue(msg ?? 'Failed to fetch new arrivals');
+    }
+  }
+);
+
+export const fetchBestSellers = createAsyncThunk(
+  'products/fetchBestSellers',
+  async (_, { rejectWithValue }) => {
+    try {
+      const { products } = await productApi.getBestSellers();
+      return products;
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      return rejectWithValue(msg ?? 'Failed to fetch best sellers');
     }
   }
 );
@@ -164,6 +192,16 @@ const productSlice = createSlice({
         state.featuredItems = action.payload;
       })
       .addCase(fetchFeaturedProducts.rejected, rejected);
+
+    builder
+      .addCase(fetchNewArrivals.pending, (state) => { state.error = null; })
+      .addCase(fetchNewArrivals.fulfilled, (state, action) => { state.newArrivals = action.payload; })
+      .addCase(fetchNewArrivals.rejected, (state, action) => { state.error = action.payload as string; });
+
+    builder
+      .addCase(fetchBestSellers.pending, (state) => { state.error = null; })
+      .addCase(fetchBestSellers.fulfilled, (state, action) => { state.bestSellers = action.payload; })
+      .addCase(fetchBestSellers.rejected, (state, action) => { state.error = action.payload as string; });
 
     builder
       .addCase(fetchAdminProducts.pending, pending)

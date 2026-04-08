@@ -47,6 +47,7 @@ export interface ProductFilters {
   maxPrice?: number;
   sort?: string;
   search?: string;
+  isFeatured?: boolean;
 }
 
 export interface ProductPagination {
@@ -59,6 +60,8 @@ export interface ProductPagination {
 export interface ProductState {
   items: Product[];
   featuredItems: Product[];
+  newArrivals: Product[];
+  bestSellers: Product[];
   currentProduct: Product | null;
   pagination: ProductPagination;
   filters: ProductFilters;

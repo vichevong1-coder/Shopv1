@@ -20,11 +20,11 @@ const ProductImageGallery = ({ images, name }: Props) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
       {/* Main image */}
-      <div style={{ borderRadius: '0.5rem', overflow: 'hidden', background: '#f3f4f6', aspectRatio: '1' }}>
+      <div style={{ borderRadius: '0.5rem', overflow: 'hidden', background: '#f8f5f1', aspectRatio: '3/4' }}>
         <img
           src={images[activeIdx].url}
           alt={name}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         />
       </div>
 

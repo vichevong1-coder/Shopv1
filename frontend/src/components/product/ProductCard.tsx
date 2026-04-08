@@ -135,9 +135,9 @@ const ProductCard = ({ product }: Props) => {
               style={{
                 width: '100%',
                 height: '100%',
-                objectFit: 'cover',
+                objectFit: 'contain',
                 transition: 'transform 0.5s ease',
-                transform: hovered ? 'scale(1.04)' : 'scale(1)',
+                transform: hovered ? 'scale(1.08)' : 'scale(1)',
               }}
             />
           ) : (

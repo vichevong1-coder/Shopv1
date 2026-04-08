@@ -18,6 +18,16 @@ export const getFeaturedProducts = async (): Promise<{ products: Product[] }> =>
   return data;
 };
 
+export const getNewArrivals = async (): Promise<{ products: Product[] }> => {
+  const { data } = await axiosInstance.get<{ products: Product[] }>('/products/new-arrivals');
+  return data;
+};
+
+export const getBestSellers = async (): Promise<{ products: Product[] }> => {
+  const { data } = await axiosInstance.get<{ products: Product[] }>('/products/best-sellers');
+  return data;
+};
+
 export const getProduct = async (id: string): Promise<{ product: Product }> => {
   const { data } = await axiosInstance.get<{ product: Product }>(`/products/${id}`);
   return data;
