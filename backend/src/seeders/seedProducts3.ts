@@ -15,7 +15,7 @@ const supabase = createClient(
 );
 
 const BUCKET      = process.env.SUPABASE_BUCKET ?? 'Products';
-const MOCKDATA_DIR = path.resolve(__dirname, '../../../mockdata');
+const MOCKDATA_DIR = path.resolve(__dirname, '../../../mock-images');
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -228,7 +228,7 @@ async function seed() {
   console.log('\nSeedProducts3 — local mockdata upload');
   console.log('─'.repeat(55));
   console.log(`  Products : ${PRODUCTS.length}`);
-  console.log(`  Images   : 18 PNG files from /mockdata`);
+  console.log(`  Images   : 18 PNG files from /mock-images`);
   console.log('─'.repeat(55) + '\n');
 
   const mongoUri = process.env.MONGO_URI;

@@ -15,8 +15,8 @@ const supabase = createClient(
 );
 
 const BUCKET        = process.env.SUPABASE_BUCKET ?? 'Products';
-const MOCKDATA_DIR  = path.resolve(__dirname, '../../../mockdata4');
-const MOCKDATA_DIR2 = path.resolve(__dirname, '../../../mockdata');
+const MOCKDATA_DIR  = path.resolve(__dirname, '../../../mock-images');
+const MOCKDATA_DIR2 = path.resolve(__dirname, '../../../mock-images');
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -447,10 +447,10 @@ async function saveProduct(
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function seed() {
-  console.log('\nSeedProducts4 — local mockdata + mockdata4 upload');
+  console.log('\nSeedProducts4 — local mock-images upload');
   console.log('─'.repeat(55));
   console.log(`  Products : ${PRODUCTS.length}`);
-  console.log(`  Images   : 54 PNG files from /mockdata (18) + /mockdata4 (36)`);
+  console.log(`  Images   : 54 PNG files from /mock-images`);
   console.log('─'.repeat(55) + '\n');
 
   const mongoUri = process.env.MONGO_URI;
