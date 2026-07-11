@@ -137,10 +137,12 @@ jobs:
     steps:
       - name: Trigger backend deploy
         run: |
-          curl -s -o /dev/null -w "%{http_code}" \
+          code=$(curl -s -o response.txt -w "%{http_code}" \
             -X GET "${{ secrets.COOLIFY_BACKEND_WEBHOOK }}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}" \
-          | grep -q "^2" && echo "Backend deploy triggered" || exit 1
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}")
+          echo "HTTP status: $code"
+          cat response.txt
+          [[ "$code" == 2* ]] || exit 1
 
       - name: Trigger frontend deploy
         run: |
