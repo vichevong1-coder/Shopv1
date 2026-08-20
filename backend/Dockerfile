@@ -18,7 +18,7 @@ COPY src ./src
 RUN npm run build
 
 # Copy mock-images into dist (tsc only compiles .ts files, not assets)
-RUN cp -r src/seeders/mock-images dist/seeders/mock-images
+RUN mkdir -p dist/seeders && cp -r src/seeders/mock-images dist/seeders/mock-images
 
 # ── Stage 2: Production ──────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
