@@ -156,20 +156,47 @@ jobs:
 
     steps:
       - name: Trigger backend deploy
+        env:
+          WEBHOOK_URL: ${{ secrets.COOLIFY_BACKEND_WEBHOOK || secrets.COOLIFY_BACKEND_WEBHOOK_URL || secrets.COOLIFY_WEBHOOK_BACKEND }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN || secrets.COOLIFY_TOKEN || secrets.COOLIFY_API_KEY }}
         run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::error::COOLIFY_BACKEND_WEBHOOK is not set in GitHub Repository Secrets."
+            exit 1
+          fi
+          if [ -z "$COOLIFY_TOKEN" ]; then
+            echo "::error::COOLIFY_API_TOKEN is not set in GitHub Repository Secrets."
+            exit 1
+          fi
+          echo "Triggering backend deploy via Coolify..."
           code=$(curl -s -o response.txt -w "%{http_code}" \
-            -X GET "${{ secrets.COOLIFY_BACKEND_WEBHOOK }}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN || secrets.COOLIFY_TOKEN }}")
+            -X GET "$WEBHOOK_URL" \
+            -H "Authorization: Bearer $COOLIFY_TOKEN")
           echo "HTTP status: $code"
           cat response.txt
+          echo ""
           [[ "$code" == 2* ]] || exit 1
 
       - name: Trigger frontend deploy
+        env:
+          WEBHOOK_URL: ${{ secrets.COOLIFY_FRONTEND_WEBHOOK || secrets.COOLIFY_FRONTEND_WEBHOOK_URL || secrets.COOLIFY_WEBHOOK_FRONTEND }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN || secrets.COOLIFY_TOKEN || secrets.COOLIFY_API_KEY }}
         run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::error::COOLIFY_FRONTEND_WEBHOOK is not set in GitHub Repository Secrets."
+            exit 1
+          fi
+          if [ -z "$COOLIFY_TOKEN" ]; then
+            echo "::error::COOLIFY_API_TOKEN is not set in GitHub Repository Secrets."
+            exit 1
+          fi
+          echo "Triggering frontend deploy via Coolify..."
           code=$(curl -s -o response.txt -w "%{http_code}" \
-            -X GET "${{ secrets.COOLIFY_FRONTEND_WEBHOOK }}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN || secrets.COOLIFY_TOKEN }}")
+            -X GET "$WEBHOOK_URL" \
+            -H "Authorization: Bearer $COOLIFY_TOKEN")
           echo "HTTP status: $code"
           cat response.txt
+          echo ""
           [[ "$code" == 2* ]] || exit 1
+
 
