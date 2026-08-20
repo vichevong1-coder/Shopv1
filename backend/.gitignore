@@ -5,6 +5,7 @@ dist/
 .env.*
 .DS_Store
 supabase_backup/
+uploads/
 .agents/
 .claude/
 .windsurf/
