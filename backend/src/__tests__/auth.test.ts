@@ -1,30 +1,19 @@
 import request from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import mongoose from 'mongoose';
 import app from '../app';
+import prisma from '../config/prisma';
 import { sendPasswordResetEmail } from '../utils/email';
 
 jest.mock('../utils/email');
 
 const mockSendResetEmail = sendPasswordResetEmail as jest.MockedFunction<typeof sendPasswordResetEmail>;
 
-let mongoServer: MongoMemoryServer;
-
-beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
-  await mongoose.connect(mongoServer.getUri());
-});
-
 afterAll(async () => {
-  await mongoose.disconnect();
-  await mongoServer.stop();
+  await prisma.user.deleteMany({});
+  await prisma.$disconnect();
 });
 
-afterEach(async () => {
-  const { collections } = mongoose.connection;
-  for (const key in collections) {
-    await collections[key].deleteMany({});
-  }
+beforeEach(async () => {
+  await prisma.user.deleteMany({});
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -98,72 +87,46 @@ describe('POST /api/auth/login', () => {
     await register();
   });
 
-  it('returns 200 with user and accessToken on valid credentials', async () => {
+  it('returns 200 with tokens on valid credentials', async () => {
     const res = await login();
 
     expect(res.status).toBe(200);
-    expect(res.body.user.email).toBe(TEST_USER.email);
+    expect(res.body.user).toMatchObject({ email: TEST_USER.email, role: 'customer' });
     expect(res.body.accessToken).toBeDefined();
-  });
-
-  it('sets a refreshToken cookie on login', async () => {
-    const res = await login();
-
     expect(getCookie(res)).toMatch(/refreshToken=/);
   });
 
-  it('returns 401 on wrong password', async () => {
-    const res = await login(TEST_USER.email, 'wrongpassword');
+  it('normalizes email to lowercase on login', async () => {
+    const res = await login(TEST_USER.email.toUpperCase());
+
+    expect(res.status).toBe(200);
+  });
+
+  it('returns 401 for incorrect password', async () => {
+    const res = await login(TEST_USER.email, 'WrongPassword999');
 
     expect(res.status).toBe(401);
     expect(res.body.message).toMatch(/invalid/i);
   });
 
-  it('returns 400 when fields are missing', async () => {
-    const res = await request(app)
-      .post('/api/auth/login')
-      .send({ email: TEST_USER.email });
+  it('returns 401 for non-existent email', async () => {
+    const res = await login('nonexistent@example.com', TEST_USER.password);
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).toMatch(/invalid/i);
+  });
+
+  it('returns 400 when email or password is missing', async () => {
+    const res = await request(app).post('/api/auth/login').send({ email: TEST_USER.email });
 
     expect(res.status).toBe(400);
-  });
-});
-
-// ─── GET /api/auth/me ─────────────────────────────────────────────────────────
-
-describe('GET /api/auth/me', () => {
-  it('returns user data with a valid access token', async () => {
-    await register();
-    const { body } = await login();
-
-    const res = await request(app)
-      .get('/api/auth/me')
-      .set('Authorization', `Bearer ${body.accessToken}`);
-
-    expect(res.status).toBe(200);
-    expect(res.body.user.email).toBe(TEST_USER.email);
-    expect(res.body.user.password).toBeUndefined();
-    expect(res.body.user.refreshTokens).toBeUndefined();
-  });
-
-  it('returns 401 with no token', async () => {
-    const res = await request(app).get('/api/auth/me');
-
-    expect(res.status).toBe(401);
-  });
-
-  it('returns 401 with an invalid token', async () => {
-    const res = await request(app)
-      .get('/api/auth/me')
-      .set('Authorization', 'Bearer thisisnotavalidtoken');
-
-    expect(res.status).toBe(401);
   });
 });
 
 // ─── POST /api/auth/refresh-token ─────────────────────────────────────────────
 
 describe('POST /api/auth/refresh-token', () => {
-  it('returns a new accessToken when cookie is valid', async () => {
+  it('returns a new access token when a valid cookie is provided', async () => {
     await register();
     const loginRes = await login();
     const cookie = getCookie(loginRes);
@@ -174,11 +137,54 @@ describe('POST /api/auth/refresh-token', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.accessToken).toBeDefined();
-    expect(typeof res.body.accessToken).toBe('string');
   });
 
-  it('returns 401 with no cookie', async () => {
+  it('returns 401 when no refreshToken cookie is present', async () => {
     const res = await request(app).post('/api/auth/refresh-token');
+
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 401 for a forged or malformed cookie', async () => {
+    const res = await request(app)
+      .post('/api/auth/refresh-token')
+      .set('Cookie', 'refreshToken=thisisnotavalidtoken');
+
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─── GET /api/auth/me ─────────────────────────────────────────────────────────
+
+describe('GET /api/auth/me', () => {
+  it('returns current user profile with valid Bearer token', async () => {
+    const regRes = await register();
+    const { accessToken } = regRes.body;
+
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user).toMatchObject({
+      name: TEST_USER.name,
+      email: TEST_USER.email,
+      role: 'customer',
+    });
+    expect(res.body.user.password).toBeUndefined();
+    expect(res.body.user.refreshTokens).toBeUndefined();
+  });
+
+  it('returns 401 when no token is provided', async () => {
+    const res = await request(app).get('/api/auth/me');
+
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 401 for an invalid Bearer token', async () => {
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', 'Bearer invalidtoken123');
 
     expect(res.status).toBe(401);
   });
@@ -197,6 +203,7 @@ describe('POST /api/auth/logout', () => {
       .set('Cookie', cookie);
 
     expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/successful/i);
     expect(getCookie(res)).toMatch(/Expires=Thu, 01 Jan 1970/);
   });
 

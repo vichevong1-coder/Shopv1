@@ -1,12 +1,7 @@
 import request from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import mongoose from 'mongoose';
 import app from '../app';
-import Product from '../models/Product';
-import Order from '../models/Order';
-import User from '../models/User';
+import prisma from '../config/prisma';
 
-let mongoServer: MongoMemoryServer;
 let customerToken: string;
 let secondToken: string;   // unrelated user — for 403 tests
 let adminToken: string;
@@ -16,8 +11,15 @@ let variantId: string;
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
-  await mongoose.connect(mongoServer.getUri());
+  await prisma.review.deleteMany({});
+  await prisma.cartItem.deleteMany({});
+  await prisma.cart.deleteMany({});
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
+  await prisma.productImage.deleteMany({});
+  await prisma.productVariant.deleteMany({});
+  await prisma.product.deleteMany({});
+  await prisma.user.deleteMany({});
 
   // --- Customer ---
   const custReg = await request(app)
@@ -31,42 +33,54 @@ beforeAll(async () => {
     .send({ name: 'Other User', email: 'other@test.com', password: 'Password123' });
   secondToken = otherReg.body.accessToken;
 
-  // --- Admin: register → promote role in DB → reuse the register token ---
+  // --- Admin ---
   const adminReg = await request(app)
     .post('/api/auth/register')
     .send({ name: 'Admin', email: 'admin@order.test', password: 'Password123' });
-  await User.updateOne({ email: 'admin@order.test' }, { role: 'admin' });
+  await prisma.user.update({ where: { email: 'admin@order.test' }, data: { role: 'admin' } });
   adminToken = adminReg.body.accessToken;
 
   // --- Product with stock ---
-  const product = await Product.create({
-    name: 'Order Test Shirt',
-    description: 'Used in order tests',
-    priceInCents: 4999,
-    category: 'shirt',
-    gender: 'men',
-    brand: 'TestBrand',
-    images: [{ url: 'https://example.com/shirt.jpg', publicId: 'shirt123' }],
-    variants: [
-      { size: 'M', color: 'White', colorHex: '#ffffff', stock: 10, reservedStock: 0, sku: 'ORDER-M-WHT' },
-    ],
+  const product = await prisma.product.create({
+    data: {
+      name: 'Order Test Shirt',
+      description: 'Used in order tests',
+      priceInCents: 4999,
+      category: 'shirt',
+      gender: 'men',
+      brand: 'TestBrand',
+      images: {
+        create: [{ url: 'https://example.com/shirt.jpg', publicId: 'shirt123', sortOrder: 0 }],
+      },
+      variants: {
+        create: [
+          { size: 'M', color: 'White', colorHex: '#ffffff', stock: 10, reservedStock: 0, sku: 'ORDER-M-WHT' },
+        ],
+      },
+    },
+    include: { variants: true },
   });
-  productId = product._id.toString();
-  variantId = (product.variants[0] as unknown as { _id: mongoose.Types.ObjectId })._id.toString();
+  productId = product.id;
+  variantId = product.variants[0].id;
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
-  await mongoServer.stop();
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
+  await prisma.productImage.deleteMany({});
+  await prisma.productVariant.deleteMany({});
+  await prisma.product.deleteMany({});
+  await prisma.user.deleteMany({});
+  await prisma.$disconnect();
 });
 
 beforeEach(async () => {
-  // Clear orders; keep users and product — reset variant reserved stock
-  await Order.deleteMany({});
-  await Product.updateOne(
-    { _id: productId, 'variants._id': variantId },
-    { $set: { 'variants.$.reservedStock': 0 } }
-  );
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
+  await prisma.productVariant.update({
+    where: { id: variantId },
+    data: { reservedStock: 0 },
+  });
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -80,7 +94,7 @@ const SHIPPING = {
 };
 
 const orderBody = (qty = 2, overrides: Record<string, unknown> = {}) => ({
-  items: [{ product: productId, quantity: qty, size: 'M', color: 'White' }],
+  items: [{ product: productId, productId, variantId, quantity: qty, size: 'M', color: 'White' }],
   shippingAddress: SHIPPING,
   paymentMethod: 'stripe',
   ...overrides,
@@ -93,10 +107,10 @@ const placeOrder = (qty = 2) =>
     .send(orderBody(qty));
 
 const getVariantStock = async () => {
-  const product = await Product.findById(productId).lean();
-  return product!.variants.find(
-    (v) => (v as unknown as { _id: { toString(): string } })._id.toString() === variantId
-  )!;
+  const variant = await prisma.productVariant.findUnique({
+    where: { id: variantId },
+  });
+  return variant!;
 };
 
 // ─── POST /api/orders ─────────────────────────────────────────────────────────
@@ -134,12 +148,12 @@ describe('POST /api/orders', () => {
   });
 
   it('returns 404 when productId does not exist', async () => {
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = '00000000-0000-0000-0000-000000000000';
     const res = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
       .send({
-        items: [{ productId: fakeId, variantId, quantity: 1, size: 'M', color: 'White' }],
+        items: [{ productId: fakeId, product: fakeId, variantId, quantity: 1, size: 'M', color: 'White' }],
         shippingAddress: SHIPPING,
         paymentMethod: 'stripe',
       });
@@ -147,12 +161,12 @@ describe('POST /api/orders', () => {
   });
 
   it('returns 404 when variantId does not exist on the product', async () => {
-    const fakeVariantId = new mongoose.Types.ObjectId().toString();
+    const fakeVariantId = '00000000-0000-0000-0000-000000000000';
     const res = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
       .send({
-        items: [{ productId, variantId: fakeVariantId, quantity: 1, size: 'M', color: 'White' }],
+        items: [{ productId, variantId: fakeVariantId, quantity: 1, size: 'NonExistent', color: 'NonExistent' }],
         shippingAddress: SHIPPING,
         paymentMethod: 'stripe',
       });
@@ -170,7 +184,6 @@ describe('POST /api/orders', () => {
 
   it('calculates server-side totals with 10% tax and free shipping', async () => {
     const res = await placeOrder(2);
-    // priceInCents=4999, qty=2 → itemsTotal=9998, tax=Math.round(9998*0.1)=1000, total=10998
     const expected = {
       itemsTotalInCents: 9998,
       shippingPriceInCents: 0,
@@ -187,23 +200,23 @@ describe('POST /api/orders', () => {
   });
 
   it('returns 409 when ordered quantity exceeds available stock', async () => {
-    const res = await placeOrder(11); // stock=10
+    const res = await placeOrder(11);
     expect(res.status).toBe(409);
     expect(res.body.message).toMatch(/insufficient stock/i);
   });
 
   it('returns 409 when reserved stock has depleted remaining availability', async () => {
-    await placeOrder(8); // 8 reserved → 2 left
-    const res = await placeOrder(3); // needs 3, only 2 available
+    await placeOrder(8);
+    const res = await placeOrder(3);
     expect(res.status).toBe(409);
   });
 
   it('succeeds when quantity exactly equals remaining available stock', async () => {
-    await placeOrder(8); // 8 reserved → 2 left
-    const res = await placeOrder(2); // exactly 2 left
+    await placeOrder(8);
+    const res = await placeOrder(2);
     expect(res.status).toBe(201);
     const variant = await getVariantStock();
-    expect(variant.reservedStock).toBe(10); // all 10 reserved
+    expect(variant.reservedStock).toBe(10);
   });
 });
 
@@ -248,7 +261,7 @@ describe('GET /api/orders/my-orders', () => {
   });
 
   it('does not return orders belonging to other users', async () => {
-    await placeOrder(1); // customer order
+    await placeOrder(1);
 
     const res = await request(app)
       .get('/api/orders/my-orders')
@@ -265,7 +278,7 @@ describe('GET /api/orders/:id', () => {
 
   beforeEach(async () => {
     const res = await placeOrder(1);
-    orderId = res.body.order._id;
+    orderId = res.body.order._id || res.body.order.id;
   });
 
   it('returns 401 without a token', async () => {
@@ -298,7 +311,7 @@ describe('GET /api/orders/:id', () => {
   });
 
   it('returns 404 for a non-existent order ID', async () => {
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = '00000000-0000-0000-0000-000000000000';
     const res = await request(app)
       .get(`/api/orders/${fakeId}`)
       .set('Authorization', `Bearer ${adminToken}`);
@@ -345,7 +358,6 @@ describe('GET /api/orders (admin)', () => {
   });
 
   it('filters results by orderStatus', async () => {
-    // Promote one order to confirmed
     const allRes = await request(app)
       .get('/api/orders')
       .set('Authorization', `Bearer ${adminToken}`);
@@ -372,7 +384,7 @@ describe('PUT /api/orders/:id/status (admin)', () => {
 
   beforeEach(async () => {
     const res = await placeOrder(1);
-    orderId = res.body.order._id;
+    orderId = res.body.order._id || res.body.order.id;
   });
 
   it('returns 401 without a token', async () => {
@@ -412,7 +424,7 @@ describe('PUT /api/orders/:id/status (admin)', () => {
   });
 
   it('returns 404 for a non-existent order ID', async () => {
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = '00000000-0000-0000-0000-000000000000';
     const res = await request(app)
       .put(`/api/orders/${fakeId}/status`)
       .set('Authorization', `Bearer ${adminToken}`)

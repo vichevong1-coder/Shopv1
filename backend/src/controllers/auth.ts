@@ -140,7 +140,7 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
         await prisma.user.update({
           where: { id: user.id },
           data: {
-            refreshTokens: user.refreshTokens.filter((t) => t !== hashedToken),
+            refreshTokens: user.refreshTokens.filter((t: string) => t !== hashedToken),
           },
         });
       }
@@ -162,7 +162,12 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
       return res.status(401).json({ message: 'Refresh token not found' });
     }
 
-    const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as { userId: string };
+    let decoded: { userId: string };
+    try {
+      decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as { userId: string };
+    } catch {
+      return res.status(401).json({ message: 'Refresh token invalid or expired' });
+    }
     const hashedToken = hashToken(refreshToken);
 
     const user = await prisma.user.findFirst({

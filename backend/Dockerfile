@@ -7,6 +7,11 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --ignore-scripts
 
+# Copy Prisma schema & generate client
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+RUN npx prisma generate
+
 # Compile TypeScript
 COPY tsconfig.json ./
 COPY src ./src
@@ -19,15 +24,21 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Only production deps
+# Production deps + Prisma CLI/client
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+RUN npm ci --omit=dev --ignore-scripts && npx prisma generate && npm cache clean --force
 
 # Copy compiled output
 COPY --from=builder /app/dist ./dist
 
+# Create uploads directory for self-hosted images
+RUN mkdir -p /app/uploads
+
 # Non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN chown -R appuser:appgroup /app/uploads
 USER appuser
 
 EXPOSE 5000

@@ -20,6 +20,21 @@ jobs:
       run:
         working-directory: backend
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_password_123
+          POSTGRES_DB: shopv1_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -31,19 +46,25 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
-      - name: Cache mongodb-memory-server binary
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/mongodb-binaries
-          key: mongodb-binary-${{ runner.os }}
-
       - name: Install dependencies
         run: npm ci
+
+      - name: Generate Prisma Client & Push Schema
+        run: |
+          npx prisma generate
+          npx prisma db push
+        env:
+          DATABASE_URL: postgresql://postgres:postgres_password_123@localhost:5432/shopv1_test?schema=public
 
       - name: Run tests
         run: npm test
         env:
           NODE_ENV: test
+          DATABASE_URL: postgresql://postgres:postgres_password_123@localhost:5432/shopv1_test?schema=public
+          JWT_ACCESS_SECRET: test_jwt_access_secret_1234567890123456789012345678901234567890
+          JWT_REFRESH_SECRET: test_jwt_refresh_secret_1234567890123456789012345678901234567890
+          STRIPE_SECRET_KEY: sk_test_placeholder
+          STRIPE_WEBHOOK_SECRET: test_webhook_secret
 
   # ── Job 2: Frontend Build Check ──────────────────────────────────────────
   build-frontend:
@@ -77,7 +98,6 @@ jobs:
           VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
 
   # ── Job 3: Build & Push Docker Images ───────────────────────────────────
-  # Only runs on push to main (not on PRs)
   docker-push:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest

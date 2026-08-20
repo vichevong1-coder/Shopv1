@@ -1,30 +1,7 @@
 import request from 'supertest';
-import { MongoMemoryReplSet } from 'mongodb-memory-server';
-import mongoose from 'mongoose';
 import app from '../app';
-import Product from '../models/Product';
-import Order from '../models/Order';
-import Cart from '../models/Cart';
-import User from '../models/User';
+import prisma from '../config/prisma';
 import stripe from '../config/stripe';
-
-// ─── Mock Stripe ──────────────────────────────────────────────────────────────
-//
-// The payment controller imports `stripe` from '../config/stripe' and calls:
-//   stripe.paymentIntents.create(...)   — in createPaymentIntent
-//   stripe.webhooks.constructEvent(...) — in stripeWebhook
-//   stripe.charges.retrieve(...)        — in stripeWebhook (best-effort card info)
-//
-// We mock the entire module so no real HTTP calls are made to Stripe's API.
-// The four Stripe test card numbers below correspond to the webhook events
-// we simulate via mocked constructEvent:
-//
-//   Card                 Scenario             Webhook event
-//   ─────────────────────────────────────────────────────────────────────
-//   4242 4242 4242 4242  Successful Payment   payment_intent.succeeded
-//   4000 0000 0000 0002  Insufficient Funds   payment_intent.payment_failed
-//   4000 0000 0000 0005  Card Declined        payment_intent.payment_failed
-//   4242 4242 4242 4241  Incorrect CVC        payment_intent.payment_failed
 
 jest.mock('../utils/email', () => ({
   sendOrderConfirmationEmail: jest.fn().mockResolvedValue(undefined),
@@ -43,9 +20,6 @@ const mockCreate = stripe.paymentIntents.create as jest.Mock;
 const mockConstructEvent = stripe.webhooks.constructEvent as jest.Mock;
 const mockRetrieveCharge = stripe.charges.retrieve as jest.Mock;
 
-// ─── Test state ───────────────────────────────────────────────────────────────
-
-let mongoServer: MongoMemoryReplSet;
 let customerToken: string;
 let customerId: string;
 let productId: string;
@@ -59,55 +33,71 @@ const SHIPPING = {
   country: 'Cambodia',
 };
 
-// ─── Setup / Teardown ─────────────────────────────────────────────────────────
-//
-// MongoMemoryReplSet (single-node) is required here because finalizeOrder()
-// runs inside a MongoDB session.withTransaction(), which only works on a
-// replica set — not on a standalone mongod.
-
 beforeAll(async () => {
   process.env.STRIPE_WEBHOOK_SECRET = 'test_webhook_secret';
 
-  mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  await mongoose.connect(mongoServer.getUri());
+  await prisma.review.deleteMany({});
+  await prisma.cartItem.deleteMany({});
+  await prisma.cart.deleteMany({});
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
+  await prisma.productImage.deleteMany({});
+  await prisma.productVariant.deleteMany({});
+  await prisma.product.deleteMany({});
+  await prisma.user.deleteMany({});
 
   const reg = await request(app)
     .post('/api/auth/register')
     .send({ name: 'Pay Customer', email: 'pay.customer@test.com', password: 'Password123' });
   customerToken = reg.body.accessToken;
 
-  const user = await User.findOne({ email: 'pay.customer@test.com' }).lean();
-  customerId = user!._id.toString();
+  const user = await prisma.user.findUnique({ where: { email: 'pay.customer@test.com' } });
+  customerId = user!.id;
 
-  const product = await Product.create({
-    name: 'Pay Test Shirt',
-    description: 'Used in payment tests',
-    priceInCents: 5000,
-    category: 'shirt',
-    gender: 'men',
-    brand: 'TestBrand',
-    images: [{ url: 'https://example.com/pay-shirt.jpg', publicId: 'pay-shirt' }],
-    variants: [
-      { size: 'M', color: 'Blue', colorHex: '#0000ff', stock: 10, reservedStock: 0, sku: 'PAY-M-BLU' },
-    ],
+  const product = await prisma.product.create({
+    data: {
+      name: 'Pay Test Shirt',
+      description: 'Used in payment tests',
+      priceInCents: 5000,
+      category: 'shirt',
+      gender: 'men',
+      brand: 'TestBrand',
+      images: {
+        create: [{ url: 'https://example.com/pay-shirt.jpg', publicId: 'pay-shirt', sortOrder: 0 }],
+      },
+      variants: {
+        create: [
+          { size: 'M', color: 'Blue', colorHex: '#0000ff', stock: 10, reservedStock: 0, sku: 'PAY-M-BLU' },
+        ],
+      },
+    },
+    include: { variants: true },
   });
-  productId = product._id.toString();
-  variantId = (product.variants[0] as unknown as { _id: mongoose.Types.ObjectId })._id.toString();
-}, 30_000); // replica set init can take a few seconds
+  productId = product.id;
+  variantId = product.variants[0].id;
+});
 
 afterAll(async () => {
-  await mongoose.disconnect();
-  await mongoServer.stop();
+  await prisma.cartItem.deleteMany({});
+  await prisma.cart.deleteMany({});
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
+  await prisma.productImage.deleteMany({});
+  await prisma.productVariant.deleteMany({});
+  await prisma.product.deleteMany({});
+  await prisma.user.deleteMany({});
+  await prisma.$disconnect();
 });
 
 beforeEach(async () => {
-  await Order.deleteMany({});
-  await Cart.deleteMany({});
-  // Reset variant to full stock between tests
-  await Product.updateOne(
-    { _id: productId, 'variants._id': variantId },
-    { $set: { 'variants.$.stock': 10, 'variants.$.reservedStock': 0 } }
-  );
+  await prisma.cartItem.deleteMany({});
+  await prisma.cart.deleteMany({});
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
+  await prisma.productVariant.update({
+    where: { id: variantId },
+    data: { stock: 10, reservedStock: 0 },
+  });
   jest.clearAllMocks();
 });
 
@@ -118,7 +108,7 @@ const placeOrder = (qty = 1) =>
     .post('/api/orders')
     .set('Authorization', `Bearer ${customerToken}`)
     .send({
-      items: [{ product: productId, quantity: qty, size: 'M', color: 'Blue' }],
+      items: [{ product: productId, productId, variantId, quantity: qty, size: 'M', color: 'Blue' }],
       shippingAddress: SHIPPING,
       paymentMethod: 'stripe',
     });
@@ -129,10 +119,6 @@ const createIntent = (orderId: string) =>
     .set('Authorization', `Bearer ${customerToken}`)
     .send({ orderId });
 
-/**
- * Sends a raw POST to the Stripe webhook endpoint.
- * The body is irrelevant — constructEvent is mocked, so we just need the header.
- */
 const fireWebhook = (event: object) =>
   request(app)
     .post('/api/payment/stripe/webhook')
@@ -141,13 +127,10 @@ const fireWebhook = (event: object) =>
     .send(JSON.stringify(event));
 
 const getVariant = async () => {
-  const product = await Product.findById(productId).lean();
-  return product!.variants.find(
-    (v) => (v as unknown as { _id: { toString(): string } })._id.toString() === variantId
-  )!;
+  const variant = await prisma.productVariant.findUnique({ where: { id: variantId } });
+  return variant!;
 };
 
-/** payment_intent.succeeded — produced by card 4242 4242 4242 4242 */
 const succeededEvent = (paymentIntentId: string, orderId: string, chargeId = 'ch_test_ok') => ({
   type: 'payment_intent.succeeded',
   data: {
@@ -159,12 +142,6 @@ const succeededEvent = (paymentIntentId: string, orderId: string, chargeId = 'ch
   },
 });
 
-/**
- * payment_intent.payment_failed — produced by declined test cards:
- *   4000 0000 0000 0002  → decline_code: insufficient_funds
- *   4000 0000 0000 0005  → decline_code: card_declined
- *   4242 4242 4242 4241  → decline_code: incorrect_cvc
- */
 const failedEvent = (paymentIntentId: string, orderId: string, declineCode: string) => ({
   type: 'payment_intent.payment_failed',
   data: {
@@ -182,17 +159,16 @@ describe('POST /api/payment/stripe/create-payment-intent', () => {
   it('returns 401 without a token', async () => {
     const res = await request(app)
       .post('/api/payment/stripe/create-payment-intent')
-      .send({ orderId: new mongoose.Types.ObjectId().toString() });
+      .send({ orderId: '00000000-0000-0000-0000-000000000000' });
     expect(res.status).toBe(401);
   });
 
   it('returns 404 when the order does not exist', async () => {
-    const res = await createIntent(new mongoose.Types.ObjectId().toString());
+    const res = await createIntent('00000000-0000-0000-0000-000000000000');
     expect(res.status).toBe(404);
   });
 
   it('returns 403 when the order belongs to a different user', async () => {
-    // Create a second user and place an order with them
     const otherReg = await request(app)
       .post('/api/auth/register')
       .send({ name: 'Other User', email: 'other.pay@test.com', password: 'Password123' });
@@ -202,21 +178,20 @@ describe('POST /api/payment/stripe/create-payment-intent', () => {
       .post('/api/orders')
       .set('Authorization', `Bearer ${otherToken}`)
       .send({
-        items: [{ product: productId, quantity: 1, size: 'M', color: 'Blue' }],
+        items: [{ product: productId, productId, quantity: 1, size: 'M', color: 'Blue' }],
         shippingAddress: SHIPPING,
         paymentMethod: 'stripe',
       });
-    const orderId = orderRes.body.order._id;
+    const orderId = orderRes.body.order._id || orderRes.body.order.id;
 
-    // Customer tries to pay for someone else's order
     const res = await createIntent(orderId);
     expect(res.status).toBe(403);
   });
 
   it('returns 400 when the order is already paid', async () => {
     const orderRes = await placeOrder();
-    const orderId = orderRes.body.order._id;
-    await Order.findByIdAndUpdate(orderId, { paymentProcessed: true });
+    const orderId = orderRes.body.order._id || orderRes.body.order.id;
+    await prisma.order.update({ where: { id: orderId }, data: { paymentProcessed: true } });
 
     const res = await createIntent(orderId);
     expect(res.status).toBe(400);
@@ -230,22 +205,21 @@ describe('POST /api/payment/stripe/create-payment-intent', () => {
     });
 
     const orderRes = await placeOrder();
-    const orderId = orderRes.body.order._id;
+    const orderId = orderRes.body.order._id || orderRes.body.order.id;
 
     const res = await createIntent(orderId);
     expect(res.status).toBe(200);
     expect(res.body.clientSecret).toBe('pi_test_abc123_secret_xyz');
 
-    const order = await Order.findById(orderId).lean();
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
     expect(order!.stripePaymentIntentId).toBe('pi_test_abc123');
-    expect(order!.paymentResult?.stripePaymentIntentId).toBe('pi_test_abc123');
   });
 
   it('calls stripe.paymentIntents.create with the order total in cents', async () => {
     mockCreate.mockResolvedValueOnce({ id: 'pi_amount_check', client_secret: 'secret' });
 
-    const orderRes = await placeOrder(3); // qty=3, priceInCents=5000 → 15000 + tax
-    const orderId = orderRes.body.order._id;
+    const orderRes = await placeOrder(3);
+    const orderId = orderRes.body.order._id || orderRes.body.order.id;
     const { totalAmountInCents } = orderRes.body.order;
 
     await createIntent(orderId);
@@ -273,23 +247,19 @@ describe('POST /api/payment/stripe/webhook', () => {
     expect(res.body.message).toMatch(/signature verification failed/i);
   });
 
-  // ── Successful Payment ── card: 4242 4242 4242 4242 ───────────────────────
-  //
-  // Stripe sends payment_intent.succeeded. Server should:
-  //   - set paymentProcessed = true, orderStatus = confirmed
-  //   - call finalizeStock (stock -qty, reservedStock -qty)
-  //   - clear the user's cart
-  //   - save card brand + last4 from charge retrieval
-
   it('[4242 4242 4242 4242] succeeded: confirms order, finalizes stock, clears cart', async () => {
-    const orderRes = await placeOrder(2); // reservedStock → 2, stock stays 10
-    const orderId = orderRes.body.order._id;
-    await Order.findByIdAndUpdate(orderId, { stripePaymentIntentId: 'pi_success' });
+    const orderRes = await placeOrder(2);
+    const orderId = orderRes.body.order._id || orderRes.body.order.id;
+    await prisma.order.update({ where: { id: orderId }, data: { stripePaymentIntentId: 'pi_success' } });
 
-    // Seed the user's cart to verify it gets cleared
-    await Cart.create({
-      user: new mongoose.Types.ObjectId(customerId),
-      items: [{ product: new mongoose.Types.ObjectId(productId), size: 'M', color: 'Blue', quantity: 2, priceInCents: 5000 }],
+    // Seed cart
+    await prisma.cart.create({
+      data: {
+        userId: customerId,
+        items: {
+          create: [{ productId, variantSize: 'M', variantColor: 'Blue', quantity: 2, priceInCents: 5000 }],
+        },
+      },
     });
 
     mockRetrieveCharge.mockResolvedValueOnce({
@@ -303,33 +273,25 @@ describe('POST /api/payment/stripe/webhook', () => {
     expect(res.status).toBe(200);
     expect(res.body.received).toBe(true);
 
-    const order = await Order.findById(orderId).lean();
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
     expect(order!.paymentProcessed).toBe(true);
     expect(order!.orderStatus).toBe('confirmed');
-    expect(order!.paymentResult?.status).toBe('succeeded');
-    expect(order!.paymentResult?.paidAt).toBeDefined();
-    expect(order!.paymentResult?.cardBrand).toBe('visa');
-    expect(order!.paymentResult?.cardLast4).toBe('4242');
+    expect(order!.cardBrand).toBe('visa');
+    expect(order!.cardLast4).toBe('4242');
 
-    // Stock finalized: stock 10 - 2 = 8, reservedStock 2 - 2 = 0
+    // Stock finalized: 10 - 2 = 8, reservedStock = 0
     const variant = await getVariant();
     expect(variant.stock).toBe(8);
     expect(variant.reservedStock).toBe(0);
 
     // Cart cleared
-    const cart = await Cart.findOne({ user: customerId }).lean();
+    const cart = await prisma.cart.findUnique({ where: { userId: customerId }, include: { items: true } });
     expect(cart!.items).toHaveLength(0);
   });
 
-  // ── Insufficient Funds ── card: 4000 0000 0000 0002 ──────────────────────
-  //
-  // Stripe sends payment_intent.payment_failed. Server acknowledges the event
-  // but takes no action — order stays pending, stock stays reserved (cron
-  // releases stale reservations after 15 min).
-
   it('[4000 0000 0000 0002] insufficient_funds: acknowledges webhook, order stays pending', async () => {
     const orderRes = await placeOrder();
-    const orderId = orderRes.body.order._id;
+    const orderId = orderRes.body.order._id || orderRes.body.order.id;
 
     const event = failedEvent('pi_fail_funds', orderId, 'insufficient_funds');
     mockConstructEvent.mockReturnValueOnce(event);
@@ -338,20 +300,17 @@ describe('POST /api/payment/stripe/webhook', () => {
     expect(res.status).toBe(200);
     expect(res.body.received).toBe(true);
 
-    const order = await Order.findById(orderId).lean();
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
     expect(order!.paymentProcessed).toBe(false);
     expect(order!.orderStatus).toBe('pending');
 
-    // Reserved stock is NOT released — cron handles stale reservations
     const variant = await getVariant();
     expect(variant.reservedStock).toBe(1);
   });
 
-  // ── Card Declined ── card: 4000 0000 0000 0005 ────────────────────────────
-
   it('[4000 0000 0000 0005] card_declined: acknowledges webhook, order stays pending', async () => {
     const orderRes = await placeOrder();
-    const orderId = orderRes.body.order._id;
+    const orderId = orderRes.body.order._id || orderRes.body.order.id;
 
     const event = failedEvent('pi_fail_decline', orderId, 'card_declined');
     mockConstructEvent.mockReturnValueOnce(event);
@@ -359,16 +318,14 @@ describe('POST /api/payment/stripe/webhook', () => {
     const res = await fireWebhook(event);
     expect(res.status).toBe(200);
 
-    const order = await Order.findById(orderId).lean();
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
     expect(order!.paymentProcessed).toBe(false);
     expect(order!.orderStatus).toBe('pending');
   });
 
-  // ── Incorrect CVC ── card: 4242 4242 4242 4241 ────────────────────────────
-
   it('[4242 4242 4242 4241] incorrect_cvc: acknowledges webhook, order stays pending', async () => {
     const orderRes = await placeOrder();
-    const orderId = orderRes.body.order._id;
+    const orderId = orderRes.body.order._id || orderRes.body.order.id;
 
     const event = failedEvent('pi_fail_cvc', orderId, 'incorrect_cvc');
     mockConstructEvent.mockReturnValueOnce(event);
@@ -376,37 +333,30 @@ describe('POST /api/payment/stripe/webhook', () => {
     const res = await fireWebhook(event);
     expect(res.status).toBe(200);
 
-    const order = await Order.findById(orderId).lean();
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
     expect(order!.paymentProcessed).toBe(false);
     expect(order!.orderStatus).toBe('pending');
   });
 
-  // ── Idempotency ───────────────────────────────────────────────────────────
-  //
-  // Bakong and Stripe webhooks can fire multiple times. finalizeOrder() checks
-  // paymentProcessed before starting the transaction, and re-checks inside the
-  // transaction to handle concurrent calls. Stock must only be decremented once.
-
   it('is idempotent: firing payment_intent.succeeded twice does not double-process', async () => {
     const orderRes = await placeOrder(2);
-    const orderId = orderRes.body.order._id;
-    await Order.findByIdAndUpdate(orderId, { stripePaymentIntentId: 'pi_idem' });
+    const orderId = orderRes.body.order._id || orderRes.body.order.id;
+    await prisma.order.update({ where: { id: orderId }, data: { stripePaymentIntentId: 'pi_idem' } });
 
     mockRetrieveCharge.mockResolvedValue({
       payment_method_details: { card: { brand: 'visa', last4: '4242' } },
     });
 
     const event = succeededEvent('pi_idem', orderId);
-    mockConstructEvent.mockReturnValue(event); // allow multiple calls
+    mockConstructEvent.mockReturnValue(event);
 
     await fireWebhook(event);
-    await fireWebhook(event); // second call — should be a no-op
+    await fireWebhook(event);
 
-    const order = await Order.findById(orderId).lean();
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
     expect(order!.paymentProcessed).toBe(true);
     expect(order!.orderStatus).toBe('confirmed');
 
-    // stock finalized exactly once: 10 - 2 = 8
     const variant = await getVariant();
     expect(variant.stock).toBe(8);
     expect(variant.reservedStock).toBe(0);

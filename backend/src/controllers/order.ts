@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import prisma from '../config/prisma';
 import { reserveStock } from '../utils/inventory';
 import type { ReservationItem } from '../utils/inventory';
 
 interface CreateOrderBody {
-  items: { product: string; size: string; color: string; quantity: number }[];
+  items: { product?: string; productId?: string; size: string; color: string; quantity: number }[];
   shippingAddress: {
     street: string;
     city: string;
@@ -85,8 +86,13 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
     const reservationItems: ReservationItem[] = [];
 
     for (const item of items) {
+      const prodId = item.productId || item.product;
+      if (!prodId) {
+        return res.status(400).json({ message: 'Product ID is required for each item' });
+      }
+
       const product = await prisma.product.findUnique({
-        where: { id: item.product },
+        where: { id: prodId },
         include: {
           variants: true,
           images: { orderBy: { sortOrder: 'asc' }, take: 1 },
@@ -94,13 +100,13 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
       });
 
       if (!product) {
-        return res.status(404).json({ message: `Product not found: ${item.product}` });
+        return res.status(404).json({ message: `Product not found: ${prodId}` });
       }
 
       const variant = product.variants.find(
         (v) =>
-          v.size.toLowerCase() === item.size.toLowerCase() &&
-          v.color.toLowerCase() === item.color.toLowerCase()
+          v.size.toLowerCase() === (item.size || '').toLowerCase() &&
+          v.color.toLowerCase() === (item.color || '').toLowerCase()
       );
 
       if (!variant) {
@@ -139,7 +145,9 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
       return res.status(409).json({ message: 'Insufficient stock for one or more items' });
     }
 
-    const orderNumber = `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const randomSuffix = crypto.randomBytes(2).toString('hex').toUpperCase();
+    const orderNumber = `ORD-${dateStr}-${randomSuffix}`;
 
     const order = await prisma.order.create({
       data: {
@@ -275,6 +283,11 @@ export const updateOrderStatus = async (req: Request, res: Response, next: NextF
     }
 
     const id = req.params.id as string;
+    const existing = await prisma.order.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
     const order = await prisma.order.update({
       where: { id },
       data: { orderStatus: status },

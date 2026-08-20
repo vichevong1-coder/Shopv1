@@ -253,6 +253,10 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
   try {
     const { images = [], variants = [], ...data } = req.body;
 
+    if (!data.name || !data.category || !data.gender || data.priceInCents === undefined) {
+      return res.status(400).json({ message: 'Missing required product fields' });
+    }
+
     const raw = await prisma.product.create({
       data: {
         name: data.name,
