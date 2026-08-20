@@ -1,5 +1,4 @@
-import mongoose from 'mongoose';
-import Product from '../models/Product';
+import prisma from '../config/prisma';
 
 export interface ReservationItem {
   productId: string;
@@ -9,63 +8,43 @@ export interface ReservationItem {
 
 /**
  * Atomically reserve stock for all items before payment.
- * Uses $expr to check available stock (stock - reservedStock >= quantity).
  * Throws if any item cannot be reserved.
  */
 export const reserveStock = async (items: ReservationItem[]): Promise<void> => {
-  const ops = items.map(({ productId, variantId, quantity }) => ({
-    updateOne: {
-      filter: {
-        _id: new mongoose.Types.ObjectId(productId),
-        'variants._id': new mongoose.Types.ObjectId(variantId),
-        $expr: {
-          $gte: [
-            {
-              $subtract: [
-                { $arrayElemAt: ['$$ROOT.variants.stock', { $indexOfArray: ['$$ROOT.variants._id', { $toObjectId: variantId }] }] },
-                { $arrayElemAt: ['$$ROOT.variants.reservedStock', { $indexOfArray: ['$$ROOT.variants._id', { $toObjectId: variantId }] }] },
-              ],
-            },
-            quantity,
-          ],
-        },
-      },
-      update: { $inc: { 'variants.$.reservedStock': quantity } },
-    },
-  }));
+  await prisma.$transaction(async (tx) => {
+    for (const { variantId, quantity } of items) {
+      const variant = await tx.productVariant.findUnique({
+        where: { id: variantId },
+      });
 
-  const result = await Product.bulkWrite(ops, { ordered: false });
+      if (!variant || variant.stock - variant.reservedStock < quantity) {
+        throw new Error(`Insufficient stock for variant: ${variantId}`);
+      }
 
-  if (result.matchedCount < items.length) {
-    throw new Error('Insufficient stock for one or more items');
-  }
+      await tx.productVariant.update({
+        where: { id: variantId },
+        data: { reservedStock: { increment: quantity } },
+      });
+    }
+  });
 };
 
 /**
  * Finalize reserved stock after successful payment.
  * Decrements both stock and reservedStock atomically.
- * Optional session for use within MongoDB transactions.
  */
-export const finalizeStock = async (
-  items: ReservationItem[],
-  session?: mongoose.ClientSession
-): Promise<void> => {
-  const ops = items.map(({ productId, variantId, quantity }) => ({
-    updateOne: {
-      filter: {
-        _id: new mongoose.Types.ObjectId(productId),
-        'variants._id': new mongoose.Types.ObjectId(variantId),
-      },
-      update: {
-        $inc: {
-          'variants.$.stock': -quantity,
-          'variants.$.reservedStock': -quantity,
+export const finalizeStock = async (items: ReservationItem[]): Promise<void> => {
+  await prisma.$transaction(async (tx) => {
+    for (const { variantId, quantity } of items) {
+      await tx.productVariant.update({
+        where: { id: variantId },
+        data: {
+          stock: { decrement: quantity },
+          reservedStock: { decrement: quantity },
         },
-      },
-    },
-  }));
-
-  await Product.bulkWrite(ops, { ordered: true, ...(session ? { session } : {}) });
+      });
+    }
+  });
 };
 
 /**
@@ -73,15 +52,14 @@ export const finalizeStock = async (
  * Decrements reservedStock only (stock stays the same).
  */
 export const releaseStock = async (items: ReservationItem[]): Promise<void> => {
-  const ops = items.map(({ productId, variantId, quantity }) => ({
-    updateOne: {
-      filter: {
-        _id: new mongoose.Types.ObjectId(productId),
-        'variants._id': new mongoose.Types.ObjectId(variantId),
-      },
-      update: { $inc: { 'variants.$.reservedStock': -quantity } },
-    },
-  }));
-
-  await Product.bulkWrite(ops, { ordered: false });
+  await prisma.$transaction(async (tx) => {
+    for (const { variantId, quantity } of items) {
+      await tx.productVariant.update({
+        where: { id: variantId },
+        data: {
+          reservedStock: { decrement: quantity },
+        },
+      });
+    }
+  });
 };

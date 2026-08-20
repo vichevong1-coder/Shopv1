@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import User from '../models/User';
+import prisma from '../config/prisma';
 
 export const adminMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -9,7 +9,11 @@ export const adminMiddleware = async (req: Request, res: Response, next: NextFun
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const user = await User.findById(userId);
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
     if (!user || user.role !== 'admin') {
       return res.status(403).json({ message: 'Admin access required' });
     }

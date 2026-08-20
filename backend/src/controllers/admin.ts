@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import User from '../models/User';
-import Order from '../models/Order';
-import Product from '../models/Product';
+import { Prisma } from '@prisma/client';
+import prisma from '../config/prisma';
+import { formatOrder } from './order';
 
 // GET /admin/users?search=&page=&limit=
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
@@ -10,26 +10,42 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
     const limit = Math.min(100, parseInt(req.query.limit as string) || 20);
     const search = (req.query.search as string)?.trim();
 
-    const filter: Record<string, unknown> = {};
+    const where: Prisma.UserWhereInput = {};
     if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
       ];
     }
 
     const [users, total] = await Promise.all([
-      User.find(filter)
-        .select('name email role avatar createdAt')
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean(),
-      User.countDocuments(filter),
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.user.count({ where }),
     ]);
 
+    const formattedUsers = users.map((u) => ({
+      _id: u.id,
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      createdAt: u.createdAt,
+    }));
+
     res.json({
-      users,
+      users: formattedUsers,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     });
   } catch (err) {
@@ -40,30 +56,33 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
 // GET /admin/stats
 export const getStats = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const [revenueAgg, totalOrders, pendingOrders, totalUsers, totalProducts, recentOrders] =
+    const [revenueAgg, totalOrders, pendingOrders, totalUsers, totalProducts, rawRecentOrders] =
       await Promise.all([
-        Order.aggregate([
-          { $match: { paymentProcessed: true } },
-          { $group: { _id: null, total: { $sum: '$totalAmountInCents' } } },
-        ]),
-        Order.countDocuments(),
-        Order.countDocuments({ orderStatus: 'pending' }),
-        User.countDocuments(),
-        Product.countDocuments({ isDeleted: { $ne: true }, isActive: true }),
-        Order.find()
-          .sort({ createdAt: -1 })
-          .limit(5)
-          .populate('user', 'name email')
-          .lean(),
+        prisma.order.aggregate({
+          where: { paymentProcessed: true },
+          _sum: { totalAmountInCents: true },
+        }),
+        prisma.order.count(),
+        prisma.order.count({ where: { orderStatus: 'pending' } }),
+        prisma.user.count(),
+        prisma.product.count({ where: { isDeleted: false, isActive: true } }),
+        prisma.order.findMany({
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          include: {
+            items: true,
+            user: { select: { id: true, name: true, email: true } },
+          },
+        }),
       ]);
 
     res.json({
-      totalRevenue: revenueAgg[0]?.total ?? 0,
+      totalRevenue: revenueAgg._sum.totalAmountInCents ?? 0,
       totalOrders,
       pendingOrders,
       totalUsers,
       totalProducts,
-      recentOrders,
+      recentOrders: rawRecentOrders.map(formatOrder),
     });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch stats' });

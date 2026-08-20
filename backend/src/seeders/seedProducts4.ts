@@ -15,8 +15,8 @@ const supabase = createClient(
 );
 
 const BUCKET        = process.env.SUPABASE_BUCKET ?? 'Products';
-const MOCKDATA_DIR  = path.resolve(__dirname, '../../../mock-images');
-const MOCKDATA_DIR2 = path.resolve(__dirname, '../../../mock-images');
+const MOCKDATA_DIR  = path.resolve(__dirname, './mock-images');
+const MOCKDATA_DIR2 = path.resolve(__dirname, './mock-images');
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

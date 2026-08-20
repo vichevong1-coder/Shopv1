@@ -1,12 +1,58 @@
 import { Request, Response, NextFunction } from 'express';
-import Product from '../models/Product';
+import { Prisma } from '@prisma/client';
+import prisma from '../config/prisma';
 
-// ─── Public ──────────────────────────────────────────────────────────────────
+export const formatProduct = (p: any) => {
+  if (!p) return null;
+  return {
+    _id: p.id,
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    priceInCents: p.priceInCents,
+    compareAtPriceInCents: p.compareAtPriceInCents,
+    category: p.category,
+    gender: p.gender,
+    brand: p.brand,
+    tags: p.tags || [],
+    isFeatured: p.isFeatured,
+    isActive: p.isActive,
+    isDeleted: p.isDeleted,
+    deletedAt: p.deletedAt,
+    ratings: {
+      average: p.ratingAverage ?? 0,
+      count: p.ratingCount ?? 0,
+      distribution: {
+        1: p.ratingDist1 ?? 0,
+        2: p.ratingDist2 ?? 0,
+        3: p.ratingDist3 ?? 0,
+        4: p.ratingDist4 ?? 0,
+        5: p.ratingDist5 ?? 0,
+      },
+    },
+    images: (p.images || []).map((img: any) => ({
+      _id: img.id,
+      id: img.id,
+      url: img.url,
+      publicId: img.publicId,
+    })),
+    variants: (p.variants || []).map((v: any) => ({
+      _id: v.id,
+      id: v.id,
+      size: v.size,
+      color: v.color,
+      colorHex: v.colorHex,
+      stock: v.stock,
+      reservedStock: v.reservedStock,
+      sku: v.sku,
+    })),
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+  };
+};
 
 /**
  * GET /api/products
- * Query params: gender, category, size, color, minPrice, maxPrice,
- *               sort, page, limit, search, brand, tags
  */
 export const listProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -25,55 +71,94 @@ export const listProducts = async (req: Request, res: Response, next: NextFuncti
       isFeatured,
     } = req.query as Record<string, string>;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const filter: Record<string, any> = { isActive: true };
+    const where: Prisma.ProductWhereInput = {
+      isActive: true,
+      isDeleted: false,
+    };
 
-    if (gender) filter.gender = gender;
-    if (category) filter.category = category;
-    if (brand) filter.brand = brand;
-    if (isFeatured === 'true') filter.isFeatured = true;
+    if (gender) where.gender = gender;
+    if (category) where.category = category;
+    if (brand) where.brand = { equals: brand, mode: 'insensitive' };
+    if (isFeatured === 'true') where.isFeatured = true;
 
     if (minPrice || maxPrice) {
-      filter.priceInCents = {};
-      if (minPrice) filter.priceInCents.$gte = Number(minPrice);
-      if (maxPrice) filter.priceInCents.$lte = Number(maxPrice);
+      where.priceInCents = {};
+      if (minPrice) where.priceInCents.gte = Number(minPrice);
+      if (maxPrice) where.priceInCents.lte = Number(maxPrice);
     }
 
     if (size || color) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const variantFilter: Record<string, any> = {};
-      if (size) variantFilter['variants.size'] = { $regex: new RegExp(`^${size}$`, 'i') };
-      if (color) variantFilter['variants.color'] = { $regex: new RegExp(`^${color}$`, 'i') };
-      Object.assign(filter, variantFilter);
+      where.variants = {
+        some: {
+          ...(size ? { size: { equals: size, mode: 'insensitive' } } : {}),
+          ...(color ? { color: { equals: color, mode: 'insensitive' } } : {}),
+        },
+      };
     }
 
     if (search) {
-      filter.$text = { $search: search };
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { brand: { contains: search, mode: 'insensitive' } },
+        { tags: { has: search.toLowerCase() } },
+      ];
     }
 
-    const sortMap: Record<string, Record<string, 1 | -1>> = {
-      featured:       { isFeatured: -1, createdAt: -1 },
-      createdAt_desc: { createdAt: -1 },
-      createdAt_asc:  { createdAt: 1 },
-      newest:         { createdAt: -1 },
-      oldest:         { createdAt: 1 },
-      price_asc:      { priceInCents: 1 },
-      price_desc:     { priceInCents: -1 },
-      name_asc:       { name: 1 },
-      name_desc:      { name: -1 },
-      popular:        { 'ratings.count': -1, 'ratings.average': -1 },
-      rating_desc:    { 'ratings.average': -1 },
+    // Sorting
+    let orderBy: Prisma.ProductOrderByWithRelationInput | Prisma.ProductOrderByWithRelationInput[] = {
+      createdAt: 'desc',
     };
-    const sortQuery = sortMap[sort] ?? { isFeatured: -1, createdAt: -1 };
+
+    switch (sort) {
+      case 'featured':
+        orderBy = [{ isFeatured: 'desc' }, { createdAt: 'desc' }];
+        break;
+      case 'createdAt_asc':
+      case 'oldest':
+        orderBy = { createdAt: 'asc' };
+        break;
+      case 'price_asc':
+        orderBy = { priceInCents: 'asc' };
+        break;
+      case 'price_desc':
+        orderBy = { priceInCents: 'desc' };
+        break;
+      case 'name_asc':
+        orderBy = { name: 'asc' };
+        break;
+      case 'name_desc':
+        orderBy = { name: 'desc' };
+        break;
+      case 'popular':
+        orderBy = [{ ratingCount: 'desc' }, { ratingAverage: 'desc' }];
+        break;
+      case 'rating_desc':
+        orderBy = { ratingAverage: 'desc' };
+        break;
+      default:
+        orderBy = { createdAt: 'desc' };
+    }
 
     const pageNum = Math.max(1, parseInt(page, 10));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
     const skip = (pageNum - 1) * limitNum;
 
-    const [products, total] = await Promise.all([
-      Product.find(filter).sort(sortQuery).skip(skip).limit(limitNum).lean(),
-      Product.countDocuments(filter),
+    const [rawProducts, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limitNum,
+        include: {
+          images: { orderBy: { sortOrder: 'asc' } },
+          variants: true,
+        },
+      }),
+      prisma.product.count({ where }),
     ]);
+
+    const products = rawProducts.map(formatProduct);
 
     res.json({
       products,
@@ -92,11 +177,16 @@ export const listProducts = async (req: Request, res: Response, next: NextFuncti
 /** GET /api/products/new-arrivals */
 export const getNewArrivals = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const products = await Product.find({ isActive: true })
-      .sort({ createdAt: -1 })
-      .limit(8)
-      .lean();
-    res.json({ products });
+    const raw = await prisma.product.findMany({
+      where: { isActive: true, isDeleted: false },
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+      include: {
+        images: { orderBy: { sortOrder: 'asc' } },
+        variants: true,
+      },
+    });
+    res.json({ products: raw.map(formatProduct) });
   } catch (err) {
     next(err);
   }
@@ -105,11 +195,16 @@ export const getNewArrivals = async (req: Request, res: Response, next: NextFunc
 /** GET /api/products/best-sellers */
 export const getBestSellers = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const products = await Product.aggregate([
-      { $match: { isActive: true, isDeleted: { $ne: true } } },
-      { $sample: { size: 8 } },
-    ]);
-    res.json({ products });
+    const raw = await prisma.product.findMany({
+      where: { isActive: true, isDeleted: false },
+      orderBy: [{ ratingCount: 'desc' }, { createdAt: 'desc' }],
+      take: 8,
+      include: {
+        images: { orderBy: { sortOrder: 'asc' } },
+        variants: true,
+      },
+    });
+    res.json({ products: raw.map(formatProduct) });
   } catch (err) {
     next(err);
   }
@@ -118,11 +213,16 @@ export const getBestSellers = async (req: Request, res: Response, next: NextFunc
 /** GET /api/products/featured */
 export const getFeaturedProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const products = await Product.find({ isFeatured: true, isActive: true })
-      .sort({ createdAt: -1 })
-      .limit(12)
-      .lean();
-    res.json({ products });
+    const raw = await prisma.product.findMany({
+      where: { isFeatured: true, isActive: true, isDeleted: false },
+      orderBy: { createdAt: 'desc' },
+      take: 12,
+      include: {
+        images: { orderBy: { sortOrder: 'asc' } },
+        variants: true,
+      },
+    });
+    res.json({ products: raw.map(formatProduct) });
   } catch (err) {
     next(err);
   }
@@ -131,98 +231,202 @@ export const getFeaturedProducts = async (req: Request, res: Response, next: Nex
 /** GET /api/products/:id */
 export const getProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const product = await Product.findById(req.params.id).lean();
-    if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.json({ product });
+    const id = req.params.id as string;
+    const raw = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        images: { orderBy: { sortOrder: 'asc' } },
+        variants: true,
+      },
+    });
+    if (!raw || (raw.isDeleted && !req.query.includeDeleted)) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    res.json({ product: formatProduct(raw) });
   } catch (err) {
     next(err);
   }
 };
 
-// ─── Admin ────────────────────────────────────────────────────────────────────
-
-/** POST /api/products  (Admin) */
+/** POST /api/products (Admin) */
 export const createProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const product = await Product.create(req.body);
-    res.status(201).json({ product });
+    const { images = [], variants = [], ...data } = req.body;
+
+    const raw = await prisma.product.create({
+      data: {
+        name: data.name,
+        description: data.description,
+        priceInCents: data.priceInCents,
+        compareAtPriceInCents: data.compareAtPriceInCents,
+        category: data.category,
+        gender: data.gender,
+        brand: data.brand,
+        tags: data.tags || [],
+        isFeatured: data.isFeatured ?? false,
+        isActive: data.isActive ?? true,
+        images: {
+          create: images.map((img: any, idx: number) => ({
+            url: img.url,
+            publicId: img.publicId || '',
+            sortOrder: idx,
+          })),
+        },
+        variants: {
+          create: variants.map((v: any) => ({
+            size: v.size,
+            color: v.color,
+            colorHex: v.colorHex,
+            stock: v.stock ?? 0,
+            reservedStock: v.reservedStock ?? 0,
+            sku: v.sku || '',
+          })),
+        },
+      },
+      include: {
+        images: true,
+        variants: true,
+      },
+    });
+
+    res.status(201).json({ product: formatProduct(raw) });
   } catch (err) {
     next(err);
   }
 };
 
-/** PUT /api/products/:id  (Admin) */
+/** PUT /api/products/:id (Admin) */
 export const updateProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Bypass the isDeleted pre-find hook so admin can update a deleted product if needed
-    const product = await Product.findOneAndUpdate(
-      { _id: req.params.id },
-      req.body,
-      { returnDocument: 'after', runValidators: true }
-    );
-    if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.json({ product });
+    const id = req.params.id as string;
+    const { images, variants, ratings, ...data } = req.body;
+
+    const updateData: Prisma.ProductUpdateInput = {
+      ...data,
+    };
+
+    if (images && Array.isArray(images)) {
+      await prisma.productImage.deleteMany({ where: { productId: id } });
+      updateData.images = {
+        create: images.map((img: any, idx: number) => ({
+          url: img.url,
+          publicId: img.publicId || '',
+          sortOrder: idx,
+        })),
+      };
+    }
+
+    if (variants && Array.isArray(variants)) {
+      await prisma.productVariant.deleteMany({ where: { productId: id } });
+      updateData.variants = {
+        create: variants.map((v: any) => ({
+          size: v.size,
+          color: v.color,
+          colorHex: v.colorHex,
+          stock: v.stock ?? 0,
+          reservedStock: v.reservedStock ?? 0,
+          sku: v.sku || '',
+        })),
+      };
+    }
+
+    const raw = await prisma.product.update({
+      where: { id },
+      data: updateData,
+      include: {
+        images: true,
+        variants: true,
+      },
+    });
+
+    res.json({ product: formatProduct(raw) });
   } catch (err) {
     next(err);
   }
 };
 
-/** PATCH /api/products/:id/soft-delete  (Admin) */
+/** PATCH /api/products/:id/soft-delete (Admin) */
 export const softDeleteProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const product = await Product.findOneAndUpdate(
-      { _id: req.params.id, isDeleted: { $ne: true } },
-      { isDeleted: true, deletedAt: new Date(), isActive: false },
-      { returnDocument: 'after' }
-    );
-    if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.json({ message: 'Product deleted', product });
+    const id = req.params.id as string;
+    const raw = await prisma.product.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        isActive: false,
+      },
+      include: { images: true, variants: true },
+    });
+    res.json({ message: 'Product deleted', product: formatProduct(raw) });
   } catch (err) {
     next(err);
   }
 };
 
-/** PATCH /api/products/:id/restore  (Admin) */
+/** PATCH /api/products/:id/restore (Admin) */
 export const restoreProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const product = await Product.findOneAndUpdate(
-      { _id: req.params.id, isDeleted: true },
-      { isDeleted: false, deletedAt: undefined, isActive: true },
-      { returnDocument: 'after' }
-    );
-    if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.json({ message: 'Product restored', product });
+    const id = req.params.id as string;
+    const raw = await prisma.product.update({
+      where: { id },
+      data: {
+        isDeleted: false,
+        deletedAt: null,
+        isActive: true,
+      },
+      include: { images: true, variants: true },
+    });
+    res.json({ message: 'Product restored', product: formatProduct(raw) });
   } catch (err) {
     next(err);
   }
 };
 
-/** GET /api/admin/products  (Admin — includes deleted) */
+/** GET /api/admin/products (Admin) */
 export const adminListProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page = '1', limit = '20', search, includeDeleted, category, gender, isActive } = req.query as Record<string, string>;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const filter: Record<string, any> = {};
-    // Setting isDeleted explicitly bypasses the pre-find auto-exclude hook
-    filter.isDeleted = includeDeleted === 'true' ? { $in: [true, false] } : { $ne: true };
-    if (search) filter.$text = { $search: search };
-    if (category) filter.category = category;
-    if (gender) filter.gender = gender;
-    if (isActive === 'true') filter.isActive = true;
-    if (isActive === 'false') filter.isActive = false;
+    const where: Prisma.ProductWhereInput = {};
+
+    if (includeDeleted !== 'true') {
+      where.isDeleted = false;
+    }
+
+    if (category) where.category = category;
+    if (gender) where.gender = gender;
+    if (isActive === 'true') where.isActive = true;
+    if (isActive === 'false') where.isActive = false;
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { brand: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
     const pageNum = Math.max(1, parseInt(page, 10));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
     const skip = (pageNum - 1) * limitNum;
 
-    const [products, total] = await Promise.all([
-      Product.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
-      Product.countDocuments(filter),
+    const [rawProducts, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+        include: {
+          images: { orderBy: { sortOrder: 'asc' } },
+          variants: true,
+        },
+      }),
+      prisma.product.count({ where }),
     ]);
 
     res.json({
-      products,
+      products: rawProducts.map(formatProduct),
       pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
     });
   } catch (err) {

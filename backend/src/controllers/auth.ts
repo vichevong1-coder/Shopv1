@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import crypto from 'crypto';
-import User from '../models/User';
+import bcrypt from 'bcryptjs';
+import prisma from '../config/prisma';
 import { sendPasswordResetEmail } from '../utils/email';
 
 const JWT_ACCESS_SECRET: string = process.env.JWT_ACCESS_SECRET || 'access-secret';
@@ -23,20 +24,6 @@ const generateRefreshToken = (userId: string): string => {
   return jwt.sign({ userId }, JWT_REFRESH_SECRET, options);
 };
 
-// Helper: Calculate token expiry date
-const getTokenExpiry = (expiryStr: string): Date => {
-  const now = new Date();
-  const match = expiryStr.match(/^(\d+)([mhd])$/);
-  if (!match) return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-  const [, num, unit] = match;
-  const n = parseInt(num, 10);
-  if (unit === 'm') return new Date(now.getTime() + n * 60 * 1000);
-  if (unit === 'h') return new Date(now.getTime() + n * 60 * 60 * 1000);
-  if (unit === 'd') return new Date(now.getTime() + n * 24 * 60 * 60 * 1000);
-  return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-};
-
 // POST /api/auth/register
 export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -46,25 +33,37 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       return res.status(400).json({ message: 'Name, email, and password are required' });
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
     if (existingUser) {
       return res.status(409).json({ message: 'Email already in use' });
     }
 
-    const user = new User({ name, email: email.toLowerCase(), password, role: 'customer' });
-    await user.save();
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const rawRefreshToken = generateRefreshToken('temp');
 
-    const accessToken = generateAccessToken(user._id.toString());
-    const rawRefreshToken = generateRefreshToken(user._id.toString());
-
-    user.refreshTokens.push({
-      token: hashToken(rawRefreshToken),
-      device: req.headers['user-agent'] || 'unknown',
-      expiresAt: getTokenExpiry(JWT_REFRESH_EXPIRY),
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: 'customer',
+        refreshTokens: [hashToken(rawRefreshToken)],
+      },
     });
-    await user.save();
 
-    res.cookie('refreshToken', rawRefreshToken, {
+    const accessToken = generateAccessToken(user.id);
+    const realRefreshToken = generateRefreshToken(user.id);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { refreshTokens: [hashToken(realRefreshToken)] },
+    });
+
+    res.cookie('refreshToken', realRefreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -73,7 +72,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
     res.status(201).json({
       message: 'User registered successfully',
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
       accessToken,
     });
   } catch (error) {
@@ -90,20 +89,24 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user || !(await user.comparePassword(password))) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    const accessToken = generateAccessToken(user._id.toString());
-    const rawRefreshToken = generateRefreshToken(user._id.toString());
+    const accessToken = generateAccessToken(user.id);
+    const rawRefreshToken = generateRefreshToken(user.id);
+    const hashedRefreshToken = hashToken(rawRefreshToken);
 
-    user.refreshTokens.push({
-      token: hashToken(rawRefreshToken),
-      device: req.headers['user-agent'] || 'unknown',
-      expiresAt: getTokenExpiry(JWT_REFRESH_EXPIRY),
+    const updatedTokens = [...user.refreshTokens.slice(-4), hashedRefreshToken];
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { refreshTokens: updatedTokens },
     });
-    await user.save();
 
     res.cookie('refreshToken', rawRefreshToken, {
       httpOnly: true,
@@ -114,7 +117,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
     res.json({
       message: 'Login successful',
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
       accessToken,
     });
   } catch (error) {
@@ -129,10 +132,18 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
 
     if (refreshToken) {
       const hashedToken = hashToken(refreshToken);
-      await User.updateOne(
-        { 'refreshTokens.token': hashedToken },
-        { $pull: { refreshTokens: { token: hashedToken } } }
-      );
+      const user = await prisma.user.findFirst({
+        where: { refreshTokens: { has: hashedToken } },
+      });
+
+      if (user) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            refreshTokens: user.refreshTokens.filter((t) => t !== hashedToken),
+          },
+        });
+      }
     }
 
     res.clearCookie('refreshToken');
@@ -153,16 +164,19 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
 
     const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as { userId: string };
     const hashedToken = hashToken(refreshToken);
-    const user = await User.findOne({
-      _id: decoded.userId,
-      'refreshTokens.token': hashedToken,
+
+    const user = await prisma.user.findFirst({
+      where: {
+        id: decoded.userId,
+        refreshTokens: { has: hashedToken },
+      },
     });
 
     if (!user) {
       return res.status(401).json({ message: 'Refresh token invalid or expired' });
     }
 
-    const newAccessToken = generateAccessToken(user._id.toString());
+    const newAccessToken = generateAccessToken(user.id);
 
     res.json({ message: 'Token refreshed', accessToken: newAccessToken });
   } catch (error) {
@@ -179,7 +193,18 @@ export const getMe = async (req: Request, res: Response, next: NextFunction) => 
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const user = await User.findById(userId).select('-password -refreshTokens');
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -199,17 +224,24 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
       return res.status(400).json({ message: 'Email is required' });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+
     if (!user) {
-      // Don't reveal if user exists
       return res.json({ message: 'If email exists, password reset link will be sent' });
     }
 
     const rawToken = crypto.randomBytes(32).toString('hex');
+    const resetToken = hashToken(rawToken);
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    user.passwordResetToken = hashToken(rawToken);
-    user.passwordResetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-    await user.save();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetPasswordToken: resetToken,
+        resetPasswordExpires: resetExpires,
+      },
+    });
 
     try {
       await sendPasswordResetEmail(user.email, rawToken);
@@ -219,9 +251,13 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
         console.log(`[DEV] Reset token for ${user.email}: ${rawToken}`);
         return res.json({ message: '[DEV] Email failed — check console for token', token: rawToken });
       }
-      user.passwordResetToken = undefined;
-      user.passwordResetExpiry = undefined;
-      await user.save();
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          resetPasswordToken: null,
+          resetPasswordExpires: null,
+        },
+      });
       return res.status(500).json({ message: 'Failed to send reset email' });
     }
 
@@ -241,19 +277,27 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
       return res.status(400).json({ message: 'New password is required' });
     }
 
-    const user = await User.findOne({
-      passwordResetToken: hashToken(token as string),
-      passwordResetExpiry: { $gt: new Date() },
+    const hashedToken = hashToken(token as string);
+    const user = await prisma.user.findFirst({
+      where: {
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: { gt: new Date() },
+      },
     });
 
     if (!user) {
       return res.status(400).json({ message: 'Invalid or expired reset token' });
     }
 
-    user.password = password;
-    user.passwordResetToken = undefined;
-    user.passwordResetExpiry = undefined;
-    await user.save();
+    const hashedPassword = await bcrypt.hash(password, 12);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+      },
+    });
 
     res.json({ message: 'Password reset successful' });
   } catch (error) {

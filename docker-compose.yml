@@ -1,14 +1,36 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: shopv1-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_password_123}
+      POSTGRES_DB: ${POSTGRES_DB:-shopv1}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-shopv1}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: shopv1-backend
     ports:
       - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 5000
-      MONGO_URI: ${MONGO_URI}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_password_123}@postgres:5432/${POSTGRES_DB:-shopv1}?schema=public
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_ACCESS_EXPIRY: ${JWT_ACCESS_EXPIRY:-15m}
@@ -20,13 +42,12 @@ services:
       BAKONG_MERCHANT_ID: ${BAKONG_MERCHANT_ID}
       BAKONG_ACQUIRER_ID: ${BAKONG_ACQUIRER_ID}
       BAKONG_CURRENCY: ${BAKONG_CURRENCY:-USD}
-      SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
-      SUPABASE_BUCKET: ${SUPABASE_BUCKET}
       EMAIL_HOST: ${EMAIL_HOST}
       EMAIL_PORT: ${EMAIL_PORT:-587}
       EMAIL_USER: ${EMAIL_USER}
       EMAIL_PASS: ${EMAIL_PASS}
+    volumes:
+      - backend_uploads:/app/uploads
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:5000/api/products"]
@@ -42,9 +63,14 @@ services:
       args:
         VITE_API_URL: http://localhost:5000/api
         VITE_STRIPE_PUBLISHABLE_KEY: ${VITE_STRIPE_PUBLISHABLE_KEY}
+    container_name: shopv1-frontend
     ports:
       - "3000:80"
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  postgres_data:
+  backend_uploads:

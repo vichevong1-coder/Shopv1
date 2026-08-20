@@ -1,18 +1,13 @@
-import mongoose from 'mongoose';
+import prisma from './prisma';
 
 export const connectDB = async () => {
   try {
-    const mongoUri = process.env.MONGO_URI;
-    if (!mongoUri) {
-      throw new Error('MONGO_URI environment variable is not set');
-    }
-
-    await mongoose.connect(mongoUri);
-    console.log('MongoDB connected successfully');
+    await prisma.$connect();
+    console.log('✅ PostgreSQL connected successfully via Prisma');
   } catch (error) {
-    console.error('MongoDB connection failed:', error);
+    console.error('💥 PostgreSQL connection failed:', error);
     process.exit(1);
   }
 };
 
-export default mongoose;
+export default prisma;

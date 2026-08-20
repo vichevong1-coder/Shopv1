@@ -1,13 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import mongoose from 'mongoose';
 import axios from 'axios';
 import { BakongKHQR, IndividualInfo, khqrData } from 'bakong-khqr';
 import stripe from '../config/stripe';
-import Order from '../models/Order';
-import Product from '../models/Product';
-import Cart from '../models/Cart';
-import User from '../models/User';
-import { finalizeStock, ReservationItem } from '../utils/inventory';
+import prisma from '../config/prisma';
+import { ReservationItem } from '../utils/inventory';
 import { sendOrderConfirmationEmail } from '../utils/email';
 
 // ---------------------------------------------------------------------------
@@ -18,68 +14,73 @@ import { sendOrderConfirmationEmail } from '../utils/email';
  * Idempotent order finalizer — called by both Stripe webhook and Bakong
  * webhook/poll. Safe to call multiple times; exits early if already processed.
  */
-const finalizeOrder = async (orderId: string | mongoose.Types.ObjectId): Promise<void> => {
-  // Step 1: pre-check idempotency (no session needed for the check)
-  const orderCheck = await Order.findById(orderId);
+const finalizeOrder = async (orderId: string): Promise<void> => {
+  // Step 1: pre-check idempotency
+  const orderCheck = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: true },
+  });
   if (!orderCheck || orderCheck.paymentProcessed) return;
 
-  // Step 2: build reservation items by looking up variant IDs from products
+  // Step 2: build reservation items by looking up variant IDs
   const reservationItems: ReservationItem[] = [];
   for (const item of orderCheck.items) {
-    // Bypass the soft-delete pre-find hook so we can finalize even if a
-    // product was soft-deleted after the order was placed.
-    const product = await Product.findOne({
-      _id: item.product,
-      isDeleted: { $in: [true, false, null] },
+    const product = await prisma.product.findUnique({
+      where: { id: item.productId },
+      include: { variants: true },
     });
     if (!product) continue;
 
     const variant = product.variants.find(
-      (v) => v.size === item.size && v.color === item.color
+      (v) =>
+        v.size.toLowerCase() === item.size.toLowerCase() &&
+        v.color.toLowerCase() === item.color.toLowerCase()
     );
     if (!variant) continue;
 
     reservationItems.push({
-      productId: item.product.toString(),
-      variantId: (variant as unknown as { _id: mongoose.Types.ObjectId })._id.toString(),
+      productId: item.productId,
+      variantId: variant.id,
       quantity: item.quantity,
     });
   }
 
   // Step 3: transaction — mark order + finalize stock + clear cart atomically
-  const session = await mongoose.startSession();
-  try {
-    await session.withTransaction(async () => {
-      const order = await Order.findById(orderId).session(session);
-      // Re-check inside the transaction to handle concurrent finalize calls
-      if (!order || order.paymentProcessed) return;
+  await prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({ where: { id: orderId } });
+    if (!order || order.paymentProcessed) return;
 
-      order.paymentProcessed = true;
-      order.orderStatus = 'confirmed';
-      if (!order.paymentResult) order.paymentResult = {};
-      order.paymentResult.status = 'succeeded';
-      order.paymentResult.paidAt = new Date();
-      await order.save({ session });
-
-      if (reservationItems.length > 0) {
-        await finalizeStock(reservationItems, session);
-      }
-
-      await Cart.findOneAndUpdate(
-        { user: order.user },
-        { $set: { items: [] } },
-        { session }
-      );
+    await tx.order.update({
+      where: { id: orderId },
+      data: {
+        paymentProcessed: true,
+        orderStatus: 'confirmed',
+        paidAt: new Date(),
+      },
     });
-  } finally {
-    await session.endSession();
-  }
+
+    if (reservationItems.length > 0) {
+      for (const { variantId, quantity } of reservationItems) {
+        await tx.productVariant.update({
+          where: { id: variantId },
+          data: {
+            stock: { decrement: quantity },
+            reservedStock: { decrement: quantity },
+          },
+        });
+      }
+    }
+
+    const cart = await tx.cart.findUnique({ where: { userId: order.userId } });
+    if (cart) {
+      await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+    }
+  });
 
   // Step 4: send confirmation email after the transaction commits
-  const user = await User.findById(orderCheck.user);
+  const user = await prisma.user.findUnique({ where: { id: orderCheck.userId } });
   if (user?.email) {
     sendOrderConfirmationEmail(user.email, orderCheck.orderNumber).catch(() => {
-      // Non-critical — log but don't bubble up
       console.error(`Failed to send order confirmation email for ${orderCheck.orderNumber}`);
     });
   }
@@ -98,9 +99,9 @@ export const createPaymentIntent = async (
   try {
     const { orderId } = req.body as { orderId: string };
 
-    const order = await Order.findById(orderId);
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
     if (!order) return res.status(404).json({ message: 'Order not found' });
-    if (order.user.toString() !== req.user!.userId) {
+    if (order.userId !== req.user!.userId) {
       return res.status(403).json({ message: 'Not authorized' });
     }
     if (order.paymentProcessed) {
@@ -111,14 +112,17 @@ export const createPaymentIntent = async (
       amount: order.totalAmountInCents,
       currency: 'usd',
       metadata: {
-        orderId: order._id.toString(),
+        orderId: order.id,
         userId: req.user!.userId,
       },
     });
 
-    order.stripePaymentIntentId = paymentIntent.id;
-    order.paymentResult = { ...order.paymentResult, stripePaymentIntentId: paymentIntent.id };
-    await order.save();
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        stripePaymentIntentId: paymentIntent.id,
+      },
+    });
 
     res.json({ clientSecret: paymentIntent.client_secret });
   } catch (err) {
@@ -128,7 +132,6 @@ export const createPaymentIntent = async (
 
 /**
  * POST /api/payment/stripe/webhook
- * Registered in app.ts BEFORE express.json() using express.raw().
  */
 export const stripeWebhook = async (
   req: Request,
@@ -152,7 +155,6 @@ export const stripeWebhook = async (
       if (orderId) {
         await finalizeOrder(orderId);
 
-        // Save card brand + last4 for receipt display — non-critical, best-effort
         const chargeId = typeof paymentIntent.latest_charge === 'string'
           ? paymentIntent.latest_charge
           : (paymentIntent.latest_charge as { id?: string } | null)?.id;
@@ -161,15 +163,17 @@ export const stripeWebhook = async (
             const charge = await stripe.charges.retrieve(chargeId);
             const card = charge.payment_method_details?.card;
             if (card?.brand && card?.last4) {
-              await Order.findByIdAndUpdate(orderId, {
-                $set: {
-                  'paymentResult.cardBrand': card.brand,
-                  'paymentResult.cardLast4': card.last4,
+              await prisma.order.update({
+                where: { id: orderId },
+                data: {
+                  stripeChargeId: chargeId,
+                  cardBrand: card.brand,
+                  cardLast4: card.last4,
                 },
               });
             }
           } catch {
-            // Non-critical — don't fail the webhook if charge retrieval fails
+            // Non-critical
           }
         }
       }
@@ -194,9 +198,9 @@ export const createBakongQR = async (
   try {
     const { orderId } = req.body as { orderId: string };
 
-    const order = await Order.findById(orderId);
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
     if (!order) return res.status(404).json({ message: 'Order not found' });
-    if (order.user.toString() !== req.user!.userId) {
+    if (order.userId !== req.user!.userId) {
       return res.status(403).json({ message: 'Not authorized' });
     }
     if (order.paymentProcessed) {
@@ -228,8 +232,10 @@ export const createBakongQR = async (
     const qrString = result.data.qr;
     const bakongRef = result.data.md5;
 
-    order.bakongRef = bakongRef;
-    await order.save();
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { bakongRef },
+    });
 
     res.json({ qrString, bakongRef });
   } catch (err) {
@@ -244,9 +250,9 @@ export const getBakongStatus = async (
   next: NextFunction
 ) => {
   try {
-    const { bakongRef } = req.params;
+    const bakongRef = req.params.bakongRef as string;
 
-    const order = await Order.findOne({ bakongRef });
+    const order = await prisma.order.findFirst({ where: { bakongRef } });
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
     if (order.paymentProcessed) {
@@ -262,7 +268,7 @@ export const getBakongStatus = async (
     );
 
     if (data?.responseCode === 0) {
-      await finalizeOrder(order._id);
+      await finalizeOrder(order.id);
       return res.json({ status: 'paid' });
     }
 
@@ -282,9 +288,9 @@ export const bakongWebhook = async (
     const bakongRef = req.body?.bakongRef as string | undefined;
 
     if (bakongRef) {
-      const order = await Order.findOne({ bakongRef });
+      const order = await prisma.order.findFirst({ where: { bakongRef } });
       if (order) {
-        await finalizeOrder(order._id);
+        await finalizeOrder(order.id);
       }
     }
 

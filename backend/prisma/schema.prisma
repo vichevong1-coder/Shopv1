@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                   String    @id @default(cuid())
+  name                 String?
+  email                String    @unique
+  password             String
+  role                 String    @default("customer") // 'admin' | 'customer'
+  refreshTokens        String[]  @default([])
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  orders               Order[]
+  cart                 Cart?
+  reviews              Review[]
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Product {
+  id                    String           @id @default(cuid())
+  name                  String
+  description           String           @db.Text
+  priceInCents          Int
+  compareAtPriceInCents Int?
+  category              String           // 'hat' | 'shirt' | 'pant' | 'shoe' | 'accessory'
+  gender                String           // 'men' | 'women' | 'kids' | 'unisex'
+  brand                 String
+  tags                  String[]         @default([])
+  isFeatured            Boolean          @default(false)
+  isActive              Boolean          @default(true)
+  isDeleted             Boolean          @default(false)
+  deletedAt             DateTime?
+  ratingAverage         Float            @default(0)
+  ratingCount           Int              @default(0)
+  ratingDist1           Int              @default(0)
+  ratingDist2           Int              @default(0)
+  ratingDist3           Int              @default(0)
+  ratingDist4           Int              @default(0)
+  ratingDist5           Int              @default(0)
+  variants              ProductVariant[]
+  images                ProductImage[]
+  reviews               Review[]
+  orderItems            OrderItem[]
+  cartItems             CartItem[]
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  @@index([category])
+  @@index([gender])
+  @@index([brand])
+  @@index([isActive, isDeleted])
+  @@map("products")
+}
+
+model ProductVariant {
+  id            String   @id @default(cuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size          String
+  color         String
+  colorHex      String
+  stock         Int      @default(0)
+  reservedStock Int      @default(0)
+  sku           String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([productId])
+  @@index([sku])
+  @@map("product_variants")
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  publicId  String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("carts")
+}
+
+model CartItem {
+  id           String   @id @default(cuid())
+  cartId       String
+  cart         Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantSize  String
+  variantColor String
+  quantity     Int      @default(1)
+  priceInCents Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([cartId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+model Order {
+  id                    String      @id @default(cuid())
+  userId                String
+  user                  User        @relation(fields: [userId], references: [id])
+  orderNumber           String      @unique
+  itemsTotalInCents     Int
+  shippingPriceInCents  Int         @default(0)
+  taxAmountInCents      Int         @default(0)
+  totalAmountInCents    Int
+  orderStatus           String      @default("pending") // 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+  paymentMethod         String      // 'stripe' | 'bakong'
+  paymentProcessed      Boolean     @default(false)
+  stripePaymentIntentId String?
+  stripeChargeId        String?
+  cardBrand             String?
+  cardLast4             String?
+  paidAt                DateTime?
+  bakongRef             String?
+  trackingNumber        String?
+  shippingStreet        String
+  shippingCity          String
+  shippingState         String
+  shippingPostalCode    String
+  shippingCountry       String
+  shippingPhone         String?
+  items                 OrderItem[]
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([orderNumber])
+  @@index([orderStatus])
+  @@map("orders")
+}
+
+model OrderItem {
+  id           String  @id @default(cuid())
+  orderId      String
+  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product @relation(fields: [productId], references: [id])
+  name         String
+  image        String
+  priceInCents Int
+  size         String
+  color        String
+  quantity     Int
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Review {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  rating           Int
+  title            String
+  comment          String   @db.Text
+  verifiedPurchase Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId])
+  @@index([productId])
+  @@map("reviews")
+}

@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import path from 'path';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import errorHandler from './middleware/error';
@@ -57,6 +58,9 @@ if (process.env.NODE_ENV !== 'test') {
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', message: 'Server is running' });
 });
+
+// Serve uploaded / seeded images locally
+app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);

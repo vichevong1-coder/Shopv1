@@ -1,9 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import Product from '../models/Product';
-import Order from '../models/Order';
-import User from '../models/User';
+import prisma from '../config/prisma';
 import { reserveStock } from '../utils/inventory';
-import type { IOrderItem } from '../models/Order';
 import type { ReservationItem } from '../utils/inventory';
 
 interface CreateOrderBody {
@@ -14,13 +11,64 @@ interface CreateOrderBody {
     state: string;
     postalCode: string;
     country: string;
+    phone?: string;
   };
   paymentMethod: 'stripe' | 'bakong';
 }
 
+export const formatOrder = (order: any) => {
+  if (!order) return null;
+  return {
+    _id: order.id,
+    id: order.id,
+    user: order.user || order.userId,
+    orderNumber: order.orderNumber,
+    itemsTotalInCents: order.itemsTotalInCents,
+    shippingPriceInCents: order.shippingPriceInCents,
+    taxAmountInCents: order.taxAmountInCents,
+    totalAmountInCents: order.totalAmountInCents,
+    orderStatus: order.orderStatus,
+    paymentMethod: order.paymentMethod,
+    paymentProcessed: order.paymentProcessed,
+    stripePaymentIntentId: order.stripePaymentIntentId,
+    bakongRef: order.bakongRef,
+    trackingNumber: order.trackingNumber,
+    shippingAddress: {
+      street: order.shippingStreet,
+      city: order.shippingCity,
+      state: order.shippingState,
+      postalCode: order.shippingPostalCode,
+      country: order.shippingCountry,
+      phone: order.shippingPhone,
+    },
+    paymentResult: {
+      stripePaymentIntentId: order.stripePaymentIntentId,
+      stripeChargeId: order.stripeChargeId,
+      status: order.paymentProcessed ? 'succeeded' : 'pending',
+      paidAt: order.paidAt,
+      cardBrand: order.cardBrand,
+      cardLast4: order.cardLast4,
+    },
+    items: (order.items || []).map((item: any) => ({
+      _id: item.id,
+      id: item.id,
+      product: item.productId,
+      name: item.name,
+      image: item.image,
+      priceInCents: item.priceInCents,
+      size: item.size,
+      color: item.color,
+      quantity: item.quantity,
+    })),
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+  };
+};
+
 /** POST /api/orders */
 export const createOrder = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const userId = req.user!.userId;
     const { items, shippingAddress, paymentMethod } = req.body as CreateOrderBody;
 
     if (!items || items.length === 0) {
@@ -33,30 +81,36 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
       return res.status(400).json({ message: 'Valid paymentMethod (stripe|bakong) is required' });
     }
 
-    // Build order item snapshots — server-side prices, never trust client
-    const orderItems: Omit<IOrderItem, '_id'>[] = [];
+    const orderItems: any[] = [];
     const reservationItems: ReservationItem[] = [];
 
     for (const item of items) {
-      const product = await Product.findById(item.product).lean();
+      const product = await prisma.product.findUnique({
+        where: { id: item.product },
+        include: {
+          variants: true,
+          images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+        },
+      });
+
       if (!product) {
         return res.status(404).json({ message: `Product not found: ${item.product}` });
       }
 
-      // Resolve variant by size+color (frontend doesn't track variantId)
       const variant = product.variants.find(
-        (v) => v.size === item.size && v.color === item.color
+        (v) =>
+          v.size.toLowerCase() === item.size.toLowerCase() &&
+          v.color.toLowerCase() === item.color.toLowerCase()
       );
+
       if (!variant) {
         return res.status(404).json({ message: `Variant not found for size=${item.size} color=${item.color}` });
       }
 
-      const variantId = (variant as unknown as { _id: { toString(): string } })._id.toString();
-
       orderItems.push({
-        product: product._id,
+        productId: product.id,
         name: product.name,
-        image: product.images[0]?.url ?? '',
+        image: product.images[0]?.url || '',
         priceInCents: product.priceInCents,
         size: variant.size,
         color: variant.color,
@@ -64,13 +118,12 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
       });
 
       reservationItems.push({
-        productId: item.product,
-        variantId,
+        productId: product.id,
+        variantId: variant.id,
         quantity: item.quantity,
       });
     }
 
-    // Calculate totals
     const itemsTotalInCents = orderItems.reduce(
       (sum, i) => sum + i.priceInCents * i.quantity,
       0
@@ -79,25 +132,41 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
     const taxAmountInCents = Math.round(itemsTotalInCents * 0.1);
     const totalAmountInCents = itemsTotalInCents + shippingPriceInCents + taxAmountInCents;
 
-    // Reserve stock before creating the order
+    // Reserve stock atomically
     try {
       await reserveStock(reservationItems);
     } catch {
       return res.status(409).json({ message: 'Insufficient stock for one or more items' });
     }
 
-    const order = await Order.create({
-      user: req.user!.userId,
-      items: orderItems,
-      shippingAddress,
-      paymentMethod,
-      itemsTotalInCents,
-      shippingPriceInCents,
-      taxAmountInCents,
-      totalAmountInCents,
+    const orderNumber = `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const order = await prisma.order.create({
+      data: {
+        userId,
+        orderNumber,
+        itemsTotalInCents,
+        shippingPriceInCents,
+        taxAmountInCents,
+        totalAmountInCents,
+        orderStatus: 'pending',
+        paymentMethod,
+        shippingStreet: shippingAddress.street,
+        shippingCity: shippingAddress.city,
+        shippingState: shippingAddress.state,
+        shippingPostalCode: shippingAddress.postalCode,
+        shippingCountry: shippingAddress.country,
+        shippingPhone: shippingAddress.phone,
+        items: {
+          create: orderItems,
+        },
+      },
+      include: {
+        items: true,
+      },
     });
 
-    res.status(201).json({ order });
+    res.status(201).json({ order: formatOrder(order) });
   } catch (err) {
     next(err);
   }
@@ -106,11 +175,15 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
 /** GET /api/orders/my-orders */
 export const getMyOrders = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const orders = await Order.find({ user: req.user!.userId })
-      .sort({ createdAt: -1 })
-      .lean();
+    const orders = await prisma.order.findMany({
+      where: { userId: req.user!.userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        items: true,
+      },
+    });
 
-    res.json({ orders });
+    res.json({ orders: orders.map(formatOrder) });
   } catch (err) {
     next(err);
   }
@@ -119,18 +192,30 @@ export const getMyOrders = async (req: Request, res: Response, next: NextFunctio
 /** GET /api/orders/:id */
 export const getOrderById = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const order = await Order.findById(req.params.id).lean();
+    const id = req.params.id as string;
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: true,
+        user: { select: { id: true, name: true, email: true, role: true } },
+      },
+    });
+
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
-    const requestingUser = await User.findById(req.user!.userId).lean();
+    const requestingUser = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { role: true },
+    });
+
     const isAdmin = requestingUser?.role === 'admin';
-    const isOwner = order.user.toString() === req.user!.userId;
+    const isOwner = order.userId === req.user!.userId;
 
     if (!isAdmin && !isOwner) {
       return res.status(403).json({ message: 'Not authorized to view this order' });
     }
 
-    res.json({ order });
+    res.json({ order: formatOrder(order) });
   } catch (err) {
     next(err);
   }
@@ -143,23 +228,27 @@ export const getOrders = async (req: Request, res: Response, next: NextFunction)
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
     const skip = (page - 1) * limit;
 
-    const filter: Record<string, unknown> = {};
+    const where: any = {};
     if (req.query.status) {
-      filter.orderStatus = req.query.status;
+      where.orderStatus = req.query.status;
     }
 
     const [orders, total] = await Promise.all([
-      Order.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate('user', 'name email')
-        .lean(),
-      Order.countDocuments(filter),
+      prisma.order.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          items: true,
+          user: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      prisma.order.count({ where }),
     ]);
 
     res.json({
-      orders,
+      orders: orders.map(formatOrder),
       pagination: {
         page,
         limit,
@@ -185,15 +274,14 @@ export const updateOrderStatus = async (req: Request, res: Response, next: NextF
       });
     }
 
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { orderStatus: status },
-      { returnDocument: 'after', runValidators: true }
-    ).lean();
+    const id = req.params.id as string;
+    const order = await prisma.order.update({
+      where: { id },
+      data: { orderStatus: status },
+      include: { items: true },
+    });
 
-    if (!order) return res.status(404).json({ message: 'Order not found' });
-
-    res.json({ order });
+    res.json({ order: formatOrder(order) });
   } catch (err) {
     next(err);
   }
