@@ -16,25 +16,69 @@ import { stripeWebhook } from './controllers/payment';
 
 const app = express();
 
-const allowedOrigins = [
+const envOrigins = [
   process.env.CLIENT_URL,
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-].filter(Boolean) as string[];
+  process.env.FRONTEND_URL,
+  process.env.ALLOWED_ORIGINS,
+]
+  .filter(Boolean)
+  .flatMap((val) => (val as string).split(',').map((s) => s.trim().replace(/\/+$/, '')))
+  .filter(Boolean);
 
-app.use(cors({
+const defaultOrigins = [
+  'https://vongshop.com',
+  'https://www.vongshop.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
+];
+
+const allowedOrigins = Array.from(new Set([...envOrigins, ...defaultOrigins]));
+
+const isOriginAllowed = (origin?: string): boolean => {
+  if (!origin) return true;
+  const normalized = origin.replace(/\/+$/, '');
+  if (allowedOrigins.includes(normalized)) return true;
+  if (
+    normalized === 'https://vongshop.com' ||
+    normalized === 'https://www.vongshop.com' ||
+    normalized.endsWith('.vongshop.com')
+  ) {
+    return true;
+  }
+  return false;
+};
+
+const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
+    if (isOriginAllowed(origin)) {
+      return callback(null, true);
+    }
+    callback(null, false);
   },
   credentials: true,
-}));
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Cache-Control',
+    'Pragma',
+  ],
+  exposedHeaders: ['Set-Cookie'],
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
 
 app.use((req: Request, res: Response, next) => {
   const isDev = process.env.NODE_ENV === 'development';
   const cspPolicy = isDev
-    ? "default-src 'self'; connect-src 'self' http://localhost:*; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; frame-src 'self';"
-    : "default-src 'self'; connect-src 'self' https://api.bakong.com https://*.supabase.co; script-src 'self'; style-src 'self' https:; img-src 'self' data: https:; font-src 'self';";
+    ? "default-src 'self'; connect-src 'self' http://localhost:* ws://localhost:*; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
+    : "default-src 'self'; connect-src 'self' https://vongshop.com https://*.vongshop.com https://api.bakong.com https://*.supabase.co https://api.stripe.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https: data:;";
   res.setHeader('Content-Security-Policy', cspPolicy);
   next();
 });

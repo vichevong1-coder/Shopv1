@@ -66,7 +66,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     res.cookie('refreshToken', realRefreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -111,7 +111,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     res.cookie('refreshToken', rawRefreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -146,7 +146,11 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
       }
     }
 
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
     res.json({ message: 'Logout successful' });
   } catch (error) {
     next(error);
