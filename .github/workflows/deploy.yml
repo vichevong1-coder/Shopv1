@@ -159,7 +159,7 @@ jobs:
         run: |
           code=$(curl -s -o response.txt -w "%{http_code}" \
             -X GET "${{ secrets.COOLIFY_BACKEND_WEBHOOK }}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}")
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN || secrets.COOLIFY_TOKEN }}")
           echo "HTTP status: $code"
           cat response.txt
           [[ "$code" == 2* ]] || exit 1
@@ -168,7 +168,7 @@ jobs:
         run: |
           code=$(curl -s -o response.txt -w "%{http_code}" \
             -X GET "${{ secrets.COOLIFY_FRONTEND_WEBHOOK }}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}")
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN || secrets.COOLIFY_TOKEN }}")
           echo "HTTP status: $code"
           cat response.txt
           [[ "$code" == 2* ]] || exit 1
