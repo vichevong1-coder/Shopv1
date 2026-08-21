@@ -12,7 +12,7 @@ import Order from '../models/Order';
 import Cart from '../models/Cart';
 import Review from '../models/Review';
 
-const APP_URL = process.env.CLIENT_URL ? 'http://localhost:5000' : 'http://localhost:5000';
+const APP_URL = (process.env.PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 function transformImageUrl(url: string, publicId: string): string {
   // If it is a Supabase URL, replace with self-hosted /uploads URL

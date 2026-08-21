@@ -8,7 +8,7 @@ import prisma from '../config/prisma';
 
 const MOCKDATA_DIR = path.resolve(__dirname, './mock-images');
 const UPLOADS_DIR = path.resolve(__dirname, '../../uploads');
-const APP_URL = process.env.CLIENT_URL ? 'http://localhost:5000' : 'http://localhost:5000';
+const APP_URL = (process.env.PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 interface ColorImage {
   file: string;
@@ -345,6 +345,32 @@ const PRODUCTS: ProductDef[] = [
   },
 ];
 
+const slugify = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+const storagePathFor = (def: ProductDef, color: string) =>
+  `${def.category}/${def.gender}/${slugify(def.name)}-${color.toLowerCase().replace(/\s+/g, '-')}.png`;
+
+// Copy bundled images into uploads/ for EVERY product, not just newly created
+// ones. A container that starts with an empty uploads volume but a populated
+// database would otherwise serve 404s for every image.
+function restoreImages(): number {
+  let restored = 0;
+  for (const def of PRODUCTS) {
+    for (const { file, color } of def.colorImages) {
+      const sourcePath = path.join(MOCKDATA_DIR, file);
+      const destPath = path.join(UPLOADS_DIR, storagePathFor(def, color));
+      if (fs.existsSync(sourcePath) && !fs.existsSync(destPath)) {
+        fs.mkdirSync(path.dirname(destPath), { recursive: true });
+        fs.copyFileSync(sourcePath, destPath);
+        restored++;
+      }
+    }
+  }
+  return restored;
+}
+
 function buildVariants(def: ProductDef, color: string, colorHex: string) {
   const skuPrefix = [
     def.brand.replace(/\s/g, '').substring(0, 3),
@@ -394,13 +420,15 @@ async function main() {
   console.log('🌱 POSTGRESQL DATABASE SEEDER (PRISMA)');
   console.log('=====================================================');
 
+  const restored = restoreImages();
+  if (restored > 0) console.log(`🖼️  Restored ${restored} product image(s) into uploads/`);
+
   await seedAdmin();
 
   console.log(`\n📦 Seeding ${PRODUCTS.length} products with 54 local images...`);
 
   let count = 0;
   for (const def of PRODUCTS) {
-    const slug = def.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
     // Check if product already exists
     const existing = await prisma.product.findFirst({
@@ -418,8 +446,7 @@ async function main() {
 
     let sortOrder = 0;
     for (const { file, color, colorHex } of def.colorImages) {
-      const colorSlug = color.toLowerCase().replace(/\s+/g, '-');
-      const storagePath = `${def.category}/${def.gender}/${slug}-${colorSlug}.png`;
+      const storagePath = storagePathFor(def, color);
       const imageUrl = `${APP_URL}/uploads/${storagePath}`;
 
       // Ensure upload directory exists and copy mock image if needed
