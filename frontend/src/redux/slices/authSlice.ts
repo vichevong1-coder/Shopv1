@@ -59,6 +59,9 @@ const authSlice = createSlice({
     setAccessToken(state, action: PayloadAction<string>) {
       state.accessToken = action.payload;
     },
+    setUser(state, action: PayloadAction<any>) {
+      state.user = action.payload;
+    },
     clearAuth(state) {
       state.user = null;
       state.accessToken = null;
@@ -116,7 +119,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { setAccessToken, clearAuth, clearError } = authSlice.actions;
+export const { setAccessToken, setUser, clearAuth, clearError } = authSlice.actions;
 
 // Selector
 export const selectAuth = (state: { auth: AuthState }) => state.auth;

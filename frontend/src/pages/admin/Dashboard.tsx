@@ -102,7 +102,65 @@ const AdminDashboard = () => {
                 sub="Active in catalog"
                 color="#7c3aed"
               />
+              <StatsCard
+                title="Low Stock"
+                value={String(stats?.lowStockCount ?? 0)}
+                sub="≤ 5 units available"
+                color="#ef4444"
+              />
             </div>
+
+            {/* Low stock alerts */}
+            {stats && stats.lowStockItems && stats.lowStockItems.length > 0 && (
+              <div style={{ background: '#fff', borderRadius: '0.5rem', border: '1px solid #fee2e2', overflow: 'hidden', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: '1px solid #fee2e2', background: '#fff1f2' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: '0.9375rem', color: '#991b1b' }}>Low Inventory Warnings</p>
+                  </div>
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                  <thead>
+                    <tr style={{ background: '#fef2f2', borderBottom: '1px solid #fecaca' }}>
+                      {['Product', 'Variant', 'Avail Stock', 'Reserved', ''].map((h) => (
+                        <th key={h} style={{ textAlign: 'left', padding: '0.625rem 1.25rem', fontWeight: 600, color: '#991b1b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.lowStockItems.map((item) => (
+                      <tr key={item.variantId} style={{ borderBottom: '1px solid #fee2e2' }}>
+                        <td style={{ padding: '0.75rem 1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          {item.image && (
+                            <img src={item.image} alt={item.name} style={{ width: '2rem', height: '2rem', objectFit: 'cover', borderRadius: '0.25rem' }} />
+                          )}
+                          <span style={{ fontWeight: 500, color: '#111827' }}>{item.name}</span>
+                        </td>
+                        <td style={{ padding: '0.75rem 1.25rem', color: '#4b5563' }}>
+                          {item.color} / {item.size}
+                        </td>
+                        <td style={{ padding: '0.75rem 1.25rem', fontWeight: 700, color: item.availableStock <= 0 ? '#ef4444' : '#d97706' }}>
+                          {item.availableStock}
+                        </td>
+                        <td style={{ padding: '0.75rem 1.25rem', color: '#9ca3af', fontSize: '0.8125rem' }}>
+                          {item.stock - item.availableStock}
+                        </td>
+                        <td style={{ padding: '0.75rem 1.25rem', textAlign: 'right' }}>
+                          <Link
+                            to={`/admin/products/${item.productId}`}
+                            style={{ fontSize: '0.8125rem', fontWeight: 500, color: '#b91c1c', textDecoration: 'none' }}
+                          >
+                            Restock →
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {/* Recent orders */}
             <div style={{ background: '#fff', borderRadius: '0.5rem', border: '1px solid #e5e7eb', overflow: 'hidden' }}>

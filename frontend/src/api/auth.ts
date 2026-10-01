@@ -62,3 +62,10 @@ export const resetPassword = async (
   );
   return data;
 };
+
+export const updateProfile = async (
+  data: { name?: string; currentPassword?: string; newPassword?: string }
+): Promise<{ user: User; message: string }> => {
+  const { data: res } = await axiosInstance.put<{ user: User; message: string }>('/auth/profile', data);
+  return res;
+};

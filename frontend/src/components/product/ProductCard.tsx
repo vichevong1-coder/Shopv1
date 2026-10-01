@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import type { Product } from '../../types/product';
 import { useCurrency } from '../../utils/money';
+import QuickViewModal from './QuickViewModal';
 
 interface Props {
   product: Product;
@@ -47,6 +48,7 @@ const ProductCard = ({ product }: Props) => {
   const [imgIndex, setImgIndex] = useState(0);
   const [hovered, setHovered] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [quickViewOpen, setQuickViewOpen] = useState(false);
 
   const images = product.images;
   const hasMultiple = images.length > 1;
@@ -238,8 +240,8 @@ const ProductCard = ({ product }: Props) => {
         )}
 
         {/* Quick view */}
-        <Link
-          to={`/product/${product._id}`}
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setQuickViewOpen(true); }}
           style={{
             position: 'absolute',
             bottom: '12px',
@@ -257,13 +259,13 @@ const ProductCard = ({ product }: Props) => {
             zIndex: 3,
             opacity: hovered ? 1 : 0,
             transition: 'opacity 0.25s ease, transform 0.25s ease',
-            textDecoration: 'none',
             color: '#0f0f0f',
             fontFamily: '"DM Sans", sans-serif',
           }}
         >
           Quick View
-        </Link>
+        </button>
+        <QuickViewModal product={product} isOpen={quickViewOpen} onClose={() => setQuickViewOpen(false)} />
       </div>
 
       {/* Info */}

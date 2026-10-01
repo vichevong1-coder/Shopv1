@@ -43,7 +43,7 @@ export const getAllOrders = async (params: GetAllOrdersParams = {}): Promise<Get
   return data;
 };
 
-export const updateOrderStatus = async (orderId: string, status: string): Promise<Order> => {
-  const { data } = await axiosInstance.put<{ order: Order }>(`/orders/${orderId}/status`, { status });
+export const updateOrderStatus = async (orderId: string, status: string, trackingNumber?: string): Promise<Order> => {
+  const { data } = await axiosInstance.put<{ order: Order }>(`/orders/${orderId}/status`, { status, trackingNumber });
   return data.order;
 };

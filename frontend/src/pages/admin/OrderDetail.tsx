@@ -59,21 +59,59 @@ const AdminOrderDetail = () => {
   const { showToast } = useUI();
   const { currentOrder, isLoading, error } = useAppSelector((s) => s.orders);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [isEditingTracking, setIsEditingTracking] = useState(false);
 
   useEffect(() => {
     if (id) dispatch(fetchOrderByIdThunk(id));
   }, [id, dispatch]);
 
+  useEffect(() => {
+    if (currentOrder) {
+      setTrackingNumber(currentOrder.trackingNumber || '');
+    }
+  }, [currentOrder]);
+
   const handleStatusChange = async (newStatus: string) => {
     if (!currentOrder) return;
+    
+    let updatedTracking = trackingNumber;
+    if (newStatus === 'shipped' && !trackingNumber) {
+      const prompted = window.prompt('Order is marked as shipped. Enter tracking number (optional):');
+      if (prompted !== null) {
+        updatedTracking = prompted;
+        setTrackingNumber(prompted);
+      }
+    }
+
     setUpdatingStatus(true);
-    const result = await dispatch(updateOrderStatusThunk({ orderId: currentOrder._id, status: newStatus }));
+    const result = await dispatch(updateOrderStatusThunk({ 
+      orderId: currentOrder._id, 
+      status: newStatus,
+      trackingNumber: updatedTracking
+    }));
     setUpdatingStatus(false);
     if (updateOrderStatusThunk.fulfilled.match(result)) {
-      // currentOrder is updated in the slice — no re-fetch needed
       showToast(`Status updated to ${newStatus}`, 'success');
     } else {
       showToast('Failed to update status', 'error');
+    }
+  };
+
+  const handleSaveTracking = async () => {
+    if (!currentOrder) return;
+    setUpdatingStatus(true);
+    const result = await dispatch(updateOrderStatusThunk({ 
+      orderId: currentOrder._id, 
+      status: currentOrder.orderStatus,
+      trackingNumber 
+    }));
+    setUpdatingStatus(false);
+    if (updateOrderStatusThunk.fulfilled.match(result)) {
+      setIsEditingTracking(false);
+      showToast('Tracking number updated', 'success');
+    } else {
+      showToast('Failed to update tracking', 'error');
     }
   };
 
@@ -246,6 +284,52 @@ const AdminOrderDetail = () => {
               <div style={{ color: '#374151' }}>{order.shippingAddress.country}</div>
               {order.shippingAddress.phone && (
                 <div style={{ marginTop: '0.4rem', color: '#6b7280', fontSize: '0.8125rem' }}>Phone: {order.shippingAddress.phone}</div>
+              )}
+            </div>
+            
+            <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #e5e7eb' }}>
+              <p style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '0.72rem', fontWeight: 600, color: '#9a8f85', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 0.5rem' }}>
+                Tracking Number
+              </p>
+              {isEditingTracking ? (
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    placeholder="Enter tracking code"
+                    style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.8rem', border: '1px solid #e5e7eb', borderRadius: '0.25rem', outline: 'none' }}
+                  />
+                  <button
+                    onClick={handleSaveTracking}
+                    disabled={updatingStatus}
+                    style={{ background: '#0f0f0f', color: '#fff', border: 'none', padding: '0.35rem 0.75rem', borderRadius: '0.25rem', fontSize: '0.75rem', cursor: 'pointer' }}
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTrackingNumber(order.trackingNumber || '');
+                      setIsEditingTracking(false);
+                    }}
+                    disabled={updatingStatus}
+                    style={{ background: '#f3f4f6', color: '#374151', border: 'none', padding: '0.35rem 0.75rem', borderRadius: '0.25rem', fontSize: '0.75rem', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', color: order.trackingNumber ? '#111827' : '#9ca3af', fontFamily: order.trackingNumber ? 'monospace' : 'inherit' }}>
+                    {order.trackingNumber || 'No tracking provided'}
+                  </span>
+                  <button
+                    onClick={() => setIsEditingTracking(true)}
+                    style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', padding: 0 }}
+                  >
+                    Edit
+                  </button>
+                </div>
               )}
             </div>
           </div>

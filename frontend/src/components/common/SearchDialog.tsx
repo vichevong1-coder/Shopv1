@@ -1,18 +1,26 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState, useMemo } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useUI } from '../../context/UIContext';
 import { useAppSelector } from '../../redux/hooks';
+import axiosInstance from '../../api/axiosInstance';
+import type { Product } from '../../types/product';
+import ProductCard from '../product/ProductCard';
+import Spinner from './Spinner';
 
 const CATEGORIES = [
-  { label: 'Clothing', href: '/shop/category/shirt' },
-  { label: 'Bottoms', href: '/shop/category/pant' },
-  { label: 'Shoes', href: '/shop/category/shoe' },
-  { label: 'Accessories', href: '/shop/category/accessory' },
+  { label: 'Shop All', href: '/shop' },
+  { label: 'Men', href: '/shop?gender=men' },
+  { label: 'Women', href: '/shop?gender=women' },
+  { label: 'Kids', href: '/shop?gender=kids' },
 ];
 
 const SearchDialog = () => {
   const { searchOpen, closeSearch } = useUI();
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [results, setResults] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -27,6 +35,8 @@ const SearchDialog = () => {
       setTimeout(() => inputRef.current?.focus(), 80);
     } else {
       setQuery('');
+      setDebouncedQuery('');
+      setResults([]);
     }
   }, [searchOpen]);
 
@@ -37,6 +47,34 @@ const SearchDialog = () => {
     if (searchOpen) document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [searchOpen, closeSearch]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [query]);
+
+  useEffect(() => {
+    if (!debouncedQuery.trim()) {
+      setResults([]);
+      return;
+    }
+    const fetchResults = async () => {
+      setLoading(true);
+      try {
+        const { data } = await axiosInstance.get<{ products: Product[] }>('/products', {
+          params: { search: debouncedQuery.trim(), limit: 4 },
+        });
+        setResults(data.products);
+      } catch (err) {
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchResults();
+  }, [debouncedQuery]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +100,7 @@ const SearchDialog = () => {
         padding: '5rem 2rem 3rem',
         animation: 'scaleIn 0.18s ease',
         fontFamily: '"DM Sans", sans-serif',
+        overflowY: 'auto'
       }}
       role="dialog"
       aria-label="Search"
@@ -94,8 +133,8 @@ const SearchDialog = () => {
       </button>
 
       {/* Search form */}
-      <div style={{ width: '100%', maxWidth: '680px', animation: 'fadeUp 0.22s ease' }}>
-        <form onSubmit={handleSubmit}>
+      <div style={{ width: '100%', maxWidth: '900px', animation: 'fadeUp 0.22s ease' }}>
+        <form onSubmit={handleSubmit} style={{ maxWidth: '680px', margin: '0 auto' }}>
           <div
             style={{
               display: 'flex',
@@ -130,7 +169,7 @@ const SearchDialog = () => {
             {query && (
               <button
                 type="button"
-                onClick={() => setQuery('')}
+                onClick={() => { setQuery(''); inputRef.current?.focus(); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#9a8f85', display: 'flex', transition: 'opacity 0.2s' }}
                 aria-label="Clear search"
               >
@@ -163,68 +202,96 @@ const SearchDialog = () => {
           </div>
         </form>
 
-        {/* Trending */}
         <div style={{ marginTop: '2.5rem' }}>
-          <p style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, color: '#9a8f85', marginBottom: '1rem' }}>
-            Trending
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {trending.map((term) => (
-              <button
-                key={term}
-                onClick={() => {
-                  closeSearch();
-                  navigate(`/shop?search=${encodeURIComponent(term)}`);
-                }}
-                style={{
-                  background: 'none',
-                  border: '1px solid #e8e2d9',
-                  padding: '0.45rem 1rem',
-                  fontSize: '0.8rem',
-                  color: '#0f0f0f',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  transition: 'background 0.15s, border-color 0.15s',
-                  letterSpacing: '0.02em',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#f8f5f1'; e.currentTarget.style.borderColor = '#9a8f85'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = '#e8e2d9'; }}
-              >
-                {term}
-              </button>
-            ))}
-          </div>
-        </div>
+          {query.trim() ? (
+            loading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                <Spinner size="md" />
+              </div>
+            ) : results.length > 0 ? (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                gap: '1.5rem',
+              }}>
+                {results.map(product => (
+                  <div key={product._id} onClick={closeSearch}>
+                    <ProductCard product={product} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.9rem', marginTop: '2rem' }}>
+                No products found for "{query}".
+              </p>
+            )
+          ) : (
+            <div style={{ maxWidth: '680px', margin: '0 auto' }}>
+              {/* Trending */}
+              <div>
+                <p style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, color: '#9a8f85', marginBottom: '1rem' }}>
+                  Trending
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {trending.map((term) => (
+                    <button
+                      key={term}
+                      onClick={() => {
+                        closeSearch();
+                        navigate(`/shop?search=${encodeURIComponent(term)}`);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: '1px solid #e8e2d9',
+                        padding: '0.45rem 1rem',
+                        fontSize: '0.8rem',
+                        color: '#0f0f0f',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        transition: 'background 0.15s, border-color 0.15s',
+                        letterSpacing: '0.02em',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#f8f5f1'; e.currentTarget.style.borderColor = '#9a8f85'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = '#e8e2d9'; }}
+                    >
+                      {term}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-        {/* Categories */}
-        <div style={{ marginTop: '2.5rem' }}>
-          <p style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, color: '#9a8f85', marginBottom: '1rem' }}>
-            Browse Categories
-          </p>
-          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-            {CATEGORIES.map((cat) => (
-              <Link
-                key={cat.href}
-                to={cat.href}
-                onClick={closeSearch}
-                style={{
-                  color: '#0f0f0f',
-                  textDecoration: 'none',
-                  fontSize: '0.9rem',
-                  fontFamily: '"Cormorant Garamond", serif',
-                  fontWeight: 500,
-                  letterSpacing: '0.06em',
-                  borderBottom: '1px solid transparent',
-                  paddingBottom: '2px',
-                  transition: 'border-color 0.2s',
-                }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.borderColor = '#0f0f0f')}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = 'transparent')}
-              >
-                {cat.label}
-              </Link>
-            ))}
-          </div>
+              {/* Categories */}
+              <div style={{ marginTop: '2.5rem' }}>
+                <p style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, color: '#9a8f85', marginBottom: '1rem' }}>
+                  Browse Categories
+                </p>
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                  {CATEGORIES.map((cat) => (
+                    <Link
+                      key={cat.href}
+                      to={cat.href}
+                      onClick={closeSearch}
+                      style={{
+                        color: '#0f0f0f',
+                        textDecoration: 'none',
+                        fontSize: '0.9rem',
+                        fontFamily: '"Cormorant Garamond", serif',
+                        fontWeight: 500,
+                        letterSpacing: '0.06em',
+                        borderBottom: '1px solid transparent',
+                        paddingBottom: '2px',
+                        transition: 'border-color 0.2s',
+                      }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.borderColor = '#0f0f0f')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = 'transparent')}
+                    >
+                      {cat.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

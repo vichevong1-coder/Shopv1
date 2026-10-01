@@ -27,12 +27,24 @@ export const adminListProducts = async (params: AdminListParams): Promise<AdminL
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
+export interface LowStockItem {
+  productId: string;
+  variantId: string;
+  name: string;
+  image: string;
+  size: string;
+  color: string;
+  availableStock: number;
+}
+
 export interface AdminStats {
   totalRevenue: number;
   totalOrders: number;
   pendingOrders: number;
   totalUsers: number;
   totalProducts: number;
+  lowStockCount: number;
+  lowStockItems: LowStockItem[];
   recentOrders: Order[];
 }
 
