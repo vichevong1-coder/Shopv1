@@ -1,5 +1,6 @@
-import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
+import { Request, Response } from 'express';
+
 import prisma from '../config/prisma';
 import { formatOrder } from './order';
 
@@ -56,7 +57,7 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
 // GET /admin/stats
 export const getStats = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const [revenueAgg, totalOrders, pendingOrders, totalUsers, totalProducts, rawRecentOrders] =
+    const [revenueAgg, totalOrders, pendingOrders, totalUsers, totalProducts, rawRecentOrders, potentialLowStock] =
       await Promise.all([
         prisma.order.aggregate({
           where: { paymentProcessed: true },
@@ -74,7 +75,24 @@ export const getStats = async (_req: Request, res: Response): Promise<void> => {
             user: { select: { id: true, name: true, email: true } },
           },
         }),
+        prisma.productVariant.findMany({
+          where: { stock: { lte: 20 }, product: { isDeleted: false, isActive: true } },
+          include: { product: { select: { id: true, name: true, images: { orderBy: { sortOrder: 'asc' }, take: 1 } } } },
+        }),
       ]);
+
+    const lowStockItems = potentialLowStock
+      .filter((v: any) => v.stock - v.reservedStock <= 5)
+      .map((v: any) => ({
+        productId: v.productId,
+        variantId: v.id,
+        name: v.product.name,
+        image: v.product.images[0]?.url || '',
+        size: v.size,
+        color: v.color,
+        availableStock: v.stock - v.reservedStock,
+      }))
+      .sort((a: any, b: any) => a.availableStock - b.availableStock);
 
     res.json({
       totalRevenue: revenueAgg._sum.totalAmountInCents ?? 0,
@@ -82,6 +100,8 @@ export const getStats = async (_req: Request, res: Response): Promise<void> => {
       pendingOrders,
       totalUsers,
       totalProducts,
+      lowStockCount: lowStockItems.length,
+      lowStockItems: lowStockItems.slice(0, 10),
       recentOrders: rawRecentOrders.map(formatOrder),
     });
   } catch (err) {

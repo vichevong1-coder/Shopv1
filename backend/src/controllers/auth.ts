@@ -313,3 +313,56 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
     next(error);
   }
 };
+
+// PUT /api/auth/profile
+export const updateProfile = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const { name, currentPassword, newPassword } = req.body;
+    
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const updates: any = {};
+    if (name) {
+      updates.name = name.trim();
+    }
+
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ message: 'Current password is required to set a new password' });
+      }
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Invalid current password' });
+      }
+      updates.password = await bcrypt.hash(newPassword, 12);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: updates,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      return res.json({ message: 'Profile updated', user: updatedUser });
+    }
+
+    res.json({ message: 'No changes made', user });
+  } catch (error) {
+    next(error);
+  }
+};

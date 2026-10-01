@@ -274,7 +274,7 @@ const VALID_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delive
 /** PUT /api/orders/:id/status (admin) */
 export const updateOrderStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { status } = req.body as { status: string };
+    const { status, trackingNumber } = req.body as { status: string; trackingNumber?: string };
 
     if (!status || !VALID_STATUSES.includes(status)) {
       return res.status(400).json({
@@ -288,9 +288,14 @@ export const updateOrderStatus = async (req: Request, res: Response, next: NextF
       return res.status(404).json({ message: 'Order not found' });
     }
 
+    const dataToUpdate: any = { orderStatus: status };
+    if (trackingNumber !== undefined) {
+      dataToUpdate.trackingNumber = trackingNumber.trim() || null;
+    }
+
     const order = await prisma.order.update({
       where: { id },
-      data: { orderStatus: status },
+      data: dataToUpdate,
       include: { items: true },
     });
 
