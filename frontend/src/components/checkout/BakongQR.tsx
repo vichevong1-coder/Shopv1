@@ -167,6 +167,41 @@ const BakongQR = ({ orderId, totalInCents, onSuccess, onError, onBack }: Props) 
         <li>This page will update automatically</li>
       </ol>
 
+      {import.meta.env.DEV && (
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              // Fire request directly to webhook endpoint to simulate success
+              await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/payment/bakong/webhook`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bakongRef })
+              });
+            } catch (err) {
+              console.error('Failed to simulate payment:', err);
+            }
+          }}
+          style={{
+            marginBottom: '1rem',
+            padding: '0.5rem',
+            background: '#f3f4f6',
+            color: '#6366f1',
+            border: '1px dashed #6366f1',
+            borderRadius: '0.375rem',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            width: '100%',
+            transition: 'background 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#e0e7ff'}
+          onMouseLeave={e => e.currentTarget.style.background = '#f3f4f6'}
+        >
+          ✨ [DEV] Simulate Successful Scan ✨
+        </button>
+      )}
+
       <Button variant="secondary" type="button" onClick={onBack} style={{ width: '100%' }}>
         Back
       </Button>

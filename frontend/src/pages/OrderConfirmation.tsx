@@ -2,7 +2,9 @@ import { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
 import { fetchOrderByIdThunk } from '../redux/slices/orderSlice';
+import { addItemThunk, addItemLocal } from '../redux/slices/cartSlice';
 import { useCurrency } from '../utils/money';
+import { useUI } from '../context/UIContext';
 import Spinner from '../components/common/Spinner';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -20,6 +22,8 @@ const OrderConfirmation = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { currentOrder, isLoading } = useAppSelector((s) => s.orders);
+  const { user } = useAppSelector((s) => s.auth);
+  const { showToast, openCart } = useUI();
 
   useEffect(() => {
     if (id) dispatch(fetchOrderByIdThunk(id));
@@ -142,13 +146,54 @@ const OrderConfirmation = () => {
         </div>
 
         {/* CTA */}
-        <div style={{ textAlign: 'center' }}>
-          <Link
-            to="/shop"
-            style={{ display: 'inline-block', padding: '0.875rem 2.5rem', background: '#0f0f0f', color: '#fff', textDecoration: 'none', borderRadius: '0.375rem', fontFamily: '"DM Sans", sans-serif', fontWeight: 600, fontSize: '0.9rem', letterSpacing: '0.05em' }}
-          >
-            Continue Shopping
-          </Link>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+            <Link
+              to="/profile/orders"
+              style={{ flex: 1, textAlign: 'center', padding: '0.875rem 0', background: '#0f0f0f', color: '#fff', textDecoration: 'none', borderRadius: '0.375rem', fontFamily: '"DM Sans", sans-serif', fontWeight: 600, fontSize: '0.9rem', letterSpacing: '0.05em' }}
+            >
+              View Order History
+            </Link>
+            <button
+              onClick={() => {
+                items.forEach(item => {
+                  if (user) {
+                    dispatch(addItemThunk({ productId: item.productId, size: item.size, color: item.color, quantity: item.quantity }));
+                  } else {
+                    dispatch(addItemLocal({
+                      _id: crypto.randomUUID(),
+                      productId: item.productId,
+                      name: item.name,
+                      image: item.image || '',
+                      size: item.size,
+                      color: item.color,
+                      quantity: item.quantity,
+                      priceInCents: item.priceInCents,
+                    }));
+                  }
+                });
+                showToast('Items added to cart', 'success');
+                openCart();
+              }}
+              style={{ flex: 1, textAlign: 'center', padding: '0.875rem 0', background: '#f8f5f1', color: '#0f0f0f', border: '1px solid #e8e2d9', cursor: 'pointer', borderRadius: '0.375rem', fontFamily: '"DM Sans", sans-serif', fontWeight: 600, fontSize: '0.9rem', letterSpacing: '0.05em' }}
+            >
+              Buy Again
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => window.print()}
+              style={{ flex: 1, textAlign: 'center', padding: '0.875rem 0', background: 'transparent', color: '#9a8f85', border: '1px solid #e8e2d9', cursor: 'pointer', borderRadius: '0.375rem', fontFamily: '"DM Sans", sans-serif', fontWeight: 600, fontSize: '0.9rem', letterSpacing: '0.05em' }}
+            >
+              Print Receipt
+            </button>
+            <Link
+              to="/shop"
+              style={{ flex: 1, textAlign: 'center', padding: '0.875rem 0', background: 'transparent', color: '#0f0f0f', border: '1px solid #0f0f0f', textDecoration: 'none', borderRadius: '0.375rem', fontFamily: '"DM Sans", sans-serif', fontWeight: 600, fontSize: '0.9rem', letterSpacing: '0.05em' }}
+            >
+              Continue Shopping
+            </Link>
+          </div>
         </div>
       </div>
     </div>

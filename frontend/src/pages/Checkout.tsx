@@ -13,6 +13,7 @@ import CheckoutSteps from '../components/checkout/CheckoutSteps';
 import ShippingForm from '../components/checkout/ShippingForm';
 import OrderReview from '../components/checkout/OrderReview';
 import StripePayment from '../components/checkout/StripePayment';
+import BakongQR from '../components/checkout/BakongQR';
 import Spinner from '../components/common/Spinner';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? '');
@@ -32,7 +33,7 @@ const Checkout = () => {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [address, setAddress] = useState<ShippingAddress>(EMPTY_ADDRESS);
-  const [paymentMethod] = useState<'stripe'>('stripe');
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'bakong'>('stripe');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -129,6 +130,23 @@ const Checkout = () => {
                 shippingAddress={address}
                 onBack={() => setStep(1)}
                 onNext={handleGoToPayment}
+                renderAboveActions={
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <p style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '0.9rem', fontWeight: 600, color: '#0f0f0f', margin: '0 0 0.5rem' }}>
+                      Payment Method
+                    </p>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontFamily: '"DM Sans", sans-serif', fontSize: '0.9rem' }}>
+                        <input type="radio" name="paymentMethod" value="stripe" checked={paymentMethod === 'stripe'} onChange={(e) => setPaymentMethod(e.target.value as 'stripe')} />
+                        Credit / Debit Card
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontFamily: '"DM Sans", sans-serif', fontSize: '0.9rem' }}>
+                        <input type="radio" name="paymentMethod" value="bakong" checked={paymentMethod === 'bakong'} onChange={(e) => setPaymentMethod(e.target.value as 'bakong')} />
+                        Bakong KHQR
+                      </label>
+                    </div>
+                  </div>
+                }
               />
             )
           )}
@@ -136,25 +154,32 @@ const Checkout = () => {
           {/* Step 3 — Payment */}
           {step === 3 && (
             <>
-              {paymentMethod === 'stripe' && clientSecret && (
-                <Elements stripe={stripePromise} options={{ clientSecret }}>
-                  <StripePayment
-                    clientSecret={clientSecret}
-                    onSuccess={handlePaymentSuccess}
-                    onError={handlePaymentError}
-                    onBack={() => setStep(2)}
-                    totalLabel={formatPrice(total)}
-                    submitting={submitting}
-                    setSubmitting={setSubmitting}
-                  />
-                </Elements>
-              )}
-
-              {/* Loading state */}
-              {!clientSecret && (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
-                  <Spinner />
-                </div>
+              {paymentMethod === 'stripe' ? (
+                clientSecret ? (
+                  <Elements stripe={stripePromise} options={{ clientSecret }}>
+                    <StripePayment
+                      clientSecret={clientSecret}
+                      onSuccess={handlePaymentSuccess}
+                      onError={handlePaymentError}
+                      onBack={() => setStep(2)}
+                      totalLabel={formatPrice(total)}
+                      submitting={submitting}
+                      setSubmitting={setSubmitting}
+                    />
+                  </Elements>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
+                    <Spinner />
+                  </div>
+                )
+              ) : (
+                <BakongQR
+                  orderId={currentOrder!._id}
+                  totalInCents={total}
+                  onSuccess={handlePaymentSuccess}
+                  onError={handlePaymentError}
+                  onBack={() => setStep(2)}
+                />
               )}
             </>
           )}

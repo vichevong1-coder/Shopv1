@@ -216,9 +216,8 @@ export const createBakongQR = async (
       'Phnom Penh',
       {
         currency,
-        amount: order.totalAmountInCents / 100,
+        amount: 0.01, // DEV DEMO PRICE: Hardcoded to $0.01 for safe real-money CV demo
         billNumber: order.orderNumber,
-        expirationTimestamp: (Date.now() + 15 * 60 * 1000) as unknown as string,
       }
     );
 
@@ -226,7 +225,8 @@ export const createBakongQR = async (
     const result = khqr.generateIndividual(info);
 
     if (result.status.code !== 0) {
-      return res.status(500).json({ message: 'Failed to generate KHQR code' });
+      console.error('KHQR Generation Failed:', result.status);
+      return res.status(500).json({ message: 'Failed to generate KHQR code', details: result.status });
     }
 
     const qrString = result.data.qr;
@@ -259,17 +259,23 @@ export const getBakongStatus = async (
       return res.json({ status: 'paid' });
     }
 
-    const { data } = await axios.get(
-      'https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5',
-      {
-        params: { md5: bakongRef },
-        headers: { Authorization: `Bearer ${process.env.BAKONG_API_TOKEN}` },
-      }
-    );
+    try {
+      const { data } = await axios.get(
+        'https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5',
+        {
+          params: { md5: bakongRef },
+          headers: { Authorization: `Bearer ${process.env.BAKONG_API_TOKEN}` },
+        }
+      );
 
-    if (data?.responseCode === 0) {
-      await finalizeOrder(order.id);
-      return res.json({ status: 'paid' });
+      if (data?.responseCode === 0) {
+        await finalizeOrder(order.id);
+        return res.json({ status: 'paid' });
+      }
+    } catch (apiError) {
+      // NBC API frequently returns 404 for unverified accounts or missing tokens.
+      // We swallow this error and return 'pending', relying on the webhook or dev simulate button instead.
+      console.warn(`Bakong API Check Failed for ${bakongRef}:`, (apiError as any).message);
     }
 
     res.json({ status: 'pending' });
